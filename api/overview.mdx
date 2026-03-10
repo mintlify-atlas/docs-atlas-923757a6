@@ -1,0 +1,193 @@
+---
+title: 'API Overview'
+description: 'Comprehensive guide to the NJ Rajat Mahotsav API endpoints and architecture'
+---
+
+## Introduction
+
+The NJ Rajat Mahotsav API is built on Next.js 15 App Router with server-side route handlers. The API provides endpoints for event registration management, admin operations, file uploads, and secure file downloads.
+
+## Architecture
+
+### Technology Stack
+
+- **Framework**: Next.js 15 with App Router
+- **Database**: Supabase (PostgreSQL)
+- **Storage**: Cloudflare R2 (S3-compatible)
+- **CDN**: Cloudflare CDN
+- **Authentication**: Supabase Auth
+
+### API Structure
+
+All API routes follow Next.js 15 App Router conventions and are located in the `app/api/` directory:
+
+```
+app/api/
+├── registrations/
+│   └── export/              # CSV export endpoint
+├── admin/
+│   ├── registrations/       # Admin registration queries
+│   ├── stats/              # Registration statistics
+│   └── test-read/          # Connectivity test
+├── download/               # Secure file download proxy
+├── generate-upload-ursl.ts # Legacy upload URL generator
+└── generate-cs-personal-submision-upload-urls/ # Upload URLs for submissions
+```
+
+## Authentication
+
+### Public Endpoints
+
+- Registration submission (client-side Supabase)
+- File download proxy (validated domains only)
+
+### Admin-Only Endpoints
+
+Admin endpoints require authenticated sessions with `@nj.sgadi.us` domain email addresses.
+
+**Authentication Flow:**
+
+1. User authenticates via Supabase Auth
+2. Server verifies session using `createClient()` from `@/utils/supabase/server`
+3. Email domain is validated using `isAdminDomainUser()` from `@/lib/admin-auth`
+4. Returns 401 (Unauthorized) if not signed in
+5. Returns 403 (Forbidden) if not admin domain
+
+<CodeGroup>
+
+```typescript Authentication Check
+import { createClient } from "@/utils/supabase/server"
+import { isAdminDomainUser } from "@/lib/admin-auth"
+
+const supabase = await createClient()
+const { data: { user } } = await supabase.auth.getUser()
+
+if (!user) {
+  return NextResponse.json(
+    { error: "Unauthorized", message: "Sign in required" },
+    { status: 401 }
+  )
+}
+
+if (!isAdminDomainUser(user)) {
+  return NextResponse.json(
+    { error: "Forbidden", message: "Admin domain (@nj.sgadi.us) required" },
+    { status: 403 }
+  )
+}
+```
+
+</CodeGroup>
+
+## Response Formats
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": { /* response data */ }
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Error type",
+  "message": "Human-readable error message",
+  "details": "Technical details (optional)"
+}
+```
+
+## Rate Limiting
+
+<Note>
+Rate limiting is handled at the infrastructure level by Vercel and Cloudflare. No explicit rate limits are enforced in application code.
+</Note>
+
+## CORS Policy
+
+All API endpoints follow Next.js default CORS policy. Admin endpoints include cache control headers:
+
+```typescript
+const headers = new Headers()
+headers.set("Cache-Control", "no-store, max-age=0")
+```
+
+## Error Codes
+
+| Status Code | Description |
+|-------------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid parameters |
+| 401 | Unauthorized - Authentication required |
+| 403 | Forbidden - Insufficient permissions |
+| 405 | Method Not Allowed |
+| 413 | Payload Too Large - File size exceeds limit |
+| 500 | Internal Server Error |
+
+## Security Best Practices
+
+### Domain Allowlisting
+
+File download endpoints use strict domain allowlisting:
+
+```typescript
+const ALLOWED_DOMAINS = [
+  'cdn.njrajatmahotsav.com',
+  'imagedelivery.net',
+]
+```
+
+### Input Sanitization
+
+All user inputs are sanitized to prevent:
+- Path traversal attacks
+- SQL injection (via Supabase parameterized queries)
+- XSS attacks
+
+### File Upload Security
+
+- Pre-signed URLs with 10-minute expiration
+- Content-Type validation
+- File size limits (10MB for downloads)
+- Unique file paths using submission IDs
+
+## Pagination
+
+Admin registration endpoints use **keyset pagination** (cursor-based) for efficient data retrieval:
+
+<ParamField query="page_size" type="integer" default="25">
+  Number of records per page. Allowed values: 25, 50, 100
+</ParamField>
+
+<ParamField query="cursor" type="integer">
+  ID of the last record from previous page
+</ParamField>
+
+<ParamField query="direction" type="string" default="next">
+  Pagination direction: `next` or `prev`
+</ParamField>
+
+## Date Formats
+
+All dates use **ISO 8601** format: `YYYY-MM-DD`
+
+**Registration Date Range:**
+- Start: `2026-07-23`
+- End: `2026-08-08`
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Registration API" icon="user-plus" href="/api/registration">
+    Event registration endpoints and schemas
+  </Card>
+  <Card title="Admin API" icon="shield" href="/api/admin">
+    Administrative endpoints for data management
+  </Card>
+  <Card title="File Upload API" icon="cloud-upload" href="/api/file-upload">
+    Secure file upload with pre-signed URLs
+  </Card>
+</CardGroup>

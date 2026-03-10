@@ -1,0 +1,274 @@
+---
+title: "Introduction"
+description: "A full-featured event management platform for the Shree Swaminarayan Temple Secaucus 25th Anniversary celebration"
+---
+
+# NJ Rajat Mahotsav Event Platform
+
+The Shree Swaminarayan Temple in Secaucus needed a platform for their 25th Anniversary celebration to handle event registration, admin workflows, display media content, share event schedules, and keep the community up to date on the latest information. Not just a brochure site, but a productionized product.
+
+## Overview
+
+This project showcases a modern, full-featured event website built with Next.js 15, React, TypeScript, and various modern web technologies. The platform serves as the digital hub for the Shree Ghanshyam Maharaj Rajat Pratishtha Mahotsav (July 27 - August 2, 2026).
+
+<CardGroup cols={2}>
+  <Card
+    title="Get Started"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Set up your local development environment in minutes
+  </Card>
+  <Card
+    title="Installation Guide"
+    icon="gear"
+    href="/installation"
+  >
+    Detailed environment setup and configuration
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Event Registration" icon="clipboard-list">
+    Multi-step registration form with Zod validation and Supabase backend storage
+  </Card>
+  <Card title="Admin Dashboard" icon="chart-line">
+    Protected admin portal with Google OAuth authentication for registration management
+  </Card>
+  <Card title="Interactive Schedule" icon="calendar">
+    Dynamic timeline view with mobile and desktop variants showcasing 50+ years of history
+  </Card>
+  <Card title="Media Galleries" icon="images">
+    Image carousels and video players with custom controls powered by Cloudflare CDN
+  </Card>
+  <Card title="Seva Submission" icon="hand-holding-heart">
+    Forms for spiritual and community service contributions
+  </Card>
+  <Card title="Background Audio System" icon="music">
+    Auto-playing prayer audio with fade controls and user consent management
+  </Card>
+  <Card title="Responsive Design" icon="mobile">
+    Fully responsive with mobile-first approach using Tailwind CSS 4
+  </Card>
+  <Card title="Smooth Animations" icon="wand-magic-sparkles">
+    Scroll animations using Framer Motion, GSAP, and Locomotive Scroll
+  </Card>
+</CardGroup>
+
+## Tech Stack
+
+### Core Technologies
+
+<CodeGroup>
+```json package.json
+{
+  "dependencies": {
+    "next": "^15.5.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5"
+  }
+}
+```
+</CodeGroup>
+
+- **Next.js 15** - React framework with App Router
+- **React 18** - UI library with server components
+- **TypeScript 5** - Type safety and developer experience
+- **Tailwind CSS 4** - Utility-first styling framework
+
+### Backend & Storage
+
+- **Supabase** - Backend as a service
+  - PostgreSQL database for event registrations
+  - Google OAuth authentication
+  - Row Level Security (RLS) for data protection
+- **Cloudflare R2** - S3-compatible object storage for static assets
+- **Cloudflare Images** - Image optimization and delivery with responsive variants
+- **AWS SDK** - S3-compatible operations for R2 integration
+
+### UI Components
+
+- **shadcn/ui** - Accessible component library built on Radix UI
+- **Radix UI** - Unstyled, accessible component primitives
+- **Framer Motion** - Production-ready animation library
+- **GSAP** - Professional-grade animation toolkit
+- **Locomotive Scroll** - Smooth scrolling experiences
+
+### Forms & Validation
+
+- **React Hook Form** - Performant form state management
+- **Zod** - TypeScript-first schema validation
+- **react-phone-number-input** - International phone input with validation
+- **react-day-picker** - Flexible date selection
+- **chrono-node** - Natural language date parsing
+
+## Project Structure
+
+The project follows atomic design principles for component organization:
+
+```
+.
+├── app/                          # Next.js 15 App Router
+│   ├── admin/                    # Admin portal (OAuth protected)
+│   │   └── registrations/        # Registration management dashboard
+│   ├── api/                      # API routes
+│   │   ├── download/             # File download endpoints
+│   │   └── registrations/        # Registration data endpoints
+│   ├── auth/                     # Authentication callback handlers
+│   ├── registration/             # Event registration page
+│   ├── schedule/                 # Event schedule timeline
+│   ├── community-seva/           # Community service submissions
+│   ├── spiritual-seva/           # Spiritual service submissions
+│   └── guest-services/           # Guest services information
+├── components/                   # React components (Atomic Design)
+│   ├── atoms/                    # Basic building blocks
+│   │   ├── loading-screen.tsx
+│   │   ├── theme-provider.tsx
+│   │   └── scroll-to-top.tsx
+│   ├── molecules/                # Simple composites
+│   │   ├── guru-card.tsx
+│   │   ├── date-picker.tsx
+│   │   └── phone-input.tsx
+│   ├── organisms/                # Complex sections
+│   │   ├── navigation.tsx
+│   │   ├── event-carousel.tsx
+│   │   └── registration-form.tsx
+│   ├── templates/                # Page layouts
+│   └── ui/                       # shadcn/ui components
+├── contexts/                     # React context providers
+│   └── audio-context.tsx         # Background audio state
+├── hooks/                        # Custom React hooks
+│   ├── use-audio.ts              # Audio playback controls
+│   ├── use-device-type.ts        # Device detection
+│   └── use-loading.tsx           # Global loading state
+├── lib/                          # Utility functions and data
+│   ├── cdn-assets.ts             # CDN helper functions
+│   └── timeline-data.ts          # Event schedule data
+├── utils/                        # Helper utilities
+│   └── supabase/                 # Supabase client setup
+│       ├── client.ts             # Browser client
+│       ├── server.ts             # Server-side client
+│       └── middleware.ts         # Session refresh middleware
+├── styles/                       # Theme CSS files
+│   ├── registration-theme.css
+│   ├── admin-theme.css
+│   └── community-theme.css
+└── middleware.ts                 # Next.js middleware for auth
+```
+
+## Architecture Highlights
+
+### Global State Management
+
+<Steps>
+  <Step title="LoadingProvider">
+    Manages global loading states across the application
+  </Step>
+  <Step title="AudioProvider">
+    Controls background prayer audio playback with fade effects
+  </Step>
+  <Step title="ThemeProvider">
+    Forced to light mode for consistent branding
+  </Step>
+</Steps>
+
+### CDN Asset Management
+
+The platform leverages Cloudflare's global network for optimal asset delivery:
+
+<CodeGroup>
+```typescript lib/cdn-assets.ts
+const CDN_BASE_URL = 'https://cdn.njrajatmahotsav.com'
+const CLOUDFLARE_IMAGES_BASE = 'https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/'
+
+// Standard responsive image
+export const getCloudflareImage = (imageId: string) => 
+  `${CLOUDFLARE_IMAGES_BASE}${imageId}/bigger?format=auto&quality=90`
+
+// Mobile optimized
+export const getCloudflareImageMobileWp = (imageId: string) => 
+  `${CLOUDFLARE_IMAGES_BASE}${imageId}/mobileWP?format=auto&quality=90`
+
+// High quality variant
+export const getCloudflareImageBiggest = (imageId: string) => 
+  `${CLOUDFLARE_IMAGES_BASE}${imageId}/biggest?format=auto&quality=100`
+```
+</CodeGroup>
+
+## Security Features
+
+The platform implements comprehensive security measures:
+
+<CardGroup cols={2}>
+  <Card title="Google OAuth" icon="shield-check">
+    Domain-restricted admin access via Supabase Auth
+  </Card>
+  <Card title="Row Level Security" icon="lock">
+    Database-level access control for registration data
+  </Card>
+  <Card title="Domain Validation" icon="check-circle">
+    Admin routes verify user email domains before granting access
+  </Card>
+  <Card title="Security Headers" icon="shield-halved">
+    X-Frame-Options, X-Content-Type-Options, CSP, and more
+  </Card>
+</CardGroup>
+
+<Warning>
+  Before deploying to production:
+  - Configure Supabase RLS policies for your domain
+  - Update allowed admin email domains in `lib/admin-auth.ts`
+  - Implement rate limiting to prevent abuse
+  - Enable CSRF protection for forms
+  - Add server-side input validation
+</Warning>
+
+## Component Organization
+
+The project follows **Atomic Design** principles for maintainability and scalability:
+
+- **Atoms** (`components/atoms/`) - Basic UI elements like loading screens and theme providers
+- **Molecules** (`components/molecules/`) - Simple combinations like cards, inputs, and pickers
+- **Organisms** (`components/organisms/`) - Complex sections like navigation, forms, and galleries
+- **Templates** (`components/templates/`) - Page-level layouts
+- **UI** (`components/ui/`) - shadcn/ui components (maintained separately for easy updates)
+
+<Tip>
+  Always import from index files when available for cleaner, more maintainable imports.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart"
+    icon="bolt"
+    href="/quickstart"
+  >
+    Get your development environment running
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Complete setup with all environment variables
+  </Card>
+  <Card
+    title="Architecture"
+    icon="sitemap"
+    href="/architecture/overview"
+  >
+    Deep dive into the application architecture
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api-reference/introduction"
+  >
+    Explore API endpoints and data schemas
+  </Card>
+</CardGroup>

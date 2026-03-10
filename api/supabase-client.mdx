@@ -1,0 +1,765 @@
+---
+title: Supabase Client
+description: Supabase client factory functions for browser, server, and middleware authentication
+---
+
+## Overview
+
+The Supabase client utilities provide SSR-compatible authentication and database access across different Next.js 15 execution contexts. Three separate client factories handle browser components, server components, and middleware.
+
+## Environment Variables
+
+<ParamField path="NEXT_PUBLIC_SUPABASE_URL" type="string" required>
+  Your Supabase project URL (e.g., `https://xxxxx.supabase.co`)
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_SUPABASE_ANON_KEY" type="string" required>
+  Public anonymous key for client-side access. Alternative: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+</ParamField>
+
+<Note>
+  The project uses `.env.local` for environment variables. Both keys must be set, or the application will use placeholder values during build (causing runtime errors).
+</Note>
+
+## Browser Client
+
+**File:** `utils/supabase/client.ts`
+
+### supabase (Browser Instance)
+
+<ResponseField name="supabase" type="SupabaseClient">
+  Pre-configured browser client for Client Components and client-side code
+</ResponseField>
+
+**Type:**
+```typescript
+import { createBrowserClient } from "@supabase/ssr"
+
+const supabase: SupabaseClient
+```
+
+**Features:**
+- Uses `createBrowserClient` from `@supabase/ssr`
+- Stores session in cookies (SSR-compatible)
+- Safe to use in Client Components, event handlers, and browser APIs
+- Automatically handles auth state synchronization
+
+**Import:**
+```typescript
+import { supabase } from "@/utils/supabase/client"
+```
+
+### hasSupabaseClientEnv
+
+<ResponseField name="hasSupabaseClientEnv" type="boolean">
+  Flag indicating whether required environment variables are present
+</ResponseField>
+
+**Usage:**
+```typescript
+import { hasSupabaseClientEnv } from "@/utils/supabase/client"
+
+if (!hasSupabaseClientEnv) {
+  console.warn("Supabase not configured - using placeholder")
+}
+```
+
+### Usage Examples
+
+#### Registration Form Submission
+
+**From `app/registration/page.tsx`:**
+```tsx
+"use client"
+
+import { supabase } from "@/utils/supabase/client"
+import { useState } from "react"
+
+export default function RegistrationPage() {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const onSubmit = async (data: FormData) => {
+    setIsSubmitting(true)
+
+    const dbData = {
+      first_name: data.firstName,
+      middle_name: data.middleName || null,
+      last_name: data.lastName,
+      age: parseInt(data.age),
+      ghaam: data.ghaam,
+      country: data.country,
+      mandal: data.mandal,
+      email: data.email,
+      phone_country_code: data.phoneCountryCode,
+      mobile_number: data.phone,
+      arrival_date: data.dateRange.start?.toString(),
+      departure_date: data.dateRange.end?.toString()
+    }
+
+    // Check if record exists
+    const { data: existingRecord } = await supabase
+      .from('registrations')
+      .select('id')
+      .eq('first_name', dbData.first_name)
+      .eq('age', dbData.age)
+      .eq('email', dbData.email)
+      .eq('mobile_number', dbData.mobile_number)
+      .maybeSingle()
+
+    if (existingRecord) {
+      // Update existing
+      const { error } = await supabase
+        .from('registrations')
+        .update(dbData)
+        .eq('id', existingRecord.id)
+
+      if (error) throw error
+    } else {
+      // Insert new
+      const { error } = await supabase
+        .from('registrations')
+        .insert([dbData])
+
+      if (error) throw error
+    }
+
+    setIsSubmitting(false)
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      {/* Form fields */}
+    </form>
+  )
+}
+```
+
+#### Authentication Check
+
+**From `components/organisms/navigation.tsx`:**
+```tsx
+"use client"
+
+import { supabase, hasSupabaseClientEnv } from "@/utils/supabase/client"
+import { useEffect, useState } from "react"
+
+export function Navigation() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    if (!hasSupabaseClientEnv) return
+
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setIsAuthenticated(!!session)
+    }
+
+    checkAuth()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setIsAuthenticated(!!session)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  return (
+    <nav>
+      {isAuthenticated ? (
+        <Link href="/admin">Admin Dashboard</Link>
+      ) : (
+        <Link href="/login">Sign In</Link>
+      )}
+    </nav>
+  )
+}
+```
+
+#### Real-time Subscriptions
+
+```tsx
+"use client"
+
+import { supabase } from "@/utils/supabase/client"
+import { useEffect, useState } from "react"
+
+type Registration = {
+  id: string
+  first_name: string
+  last_name: string
+  created_at: string
+}
+
+export function LiveRegistrations() {
+  const [registrations, setRegistrations] = useState<Registration[]>([])
+
+  useEffect(() => {
+    // Fetch initial data
+    const fetchRegistrations = async () => {
+      const { data } = await supabase
+        .from('registrations')
+        .select('id, first_name, last_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (data) setRegistrations(data)
+    }
+
+    fetchRegistrations()
+
+    // Subscribe to new inserts
+    const channel = supabase
+      .channel('registrations')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'registrations'
+        },
+        (payload) => {
+          setRegistrations(prev => [payload.new as Registration, ...prev])
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  return (
+    <ul>
+      {registrations.map(reg => (
+        <li key={reg.id}>
+          {reg.first_name} {reg.last_name}
+        </li>
+      ))}
+    </ul>
+  )
+}
+```
+
+---
+
+## Server Client
+
+**File:** `utils/supabase/server.ts`
+
+### createClient (Server Factory)
+
+<ResponseField name="createClient" type="() => Promise<SupabaseClient>">
+  Async factory function that creates a Supabase client for server-side use
+</ResponseField>
+
+**Signature:**
+```typescript
+export async function createClient(): Promise<SupabaseClient>
+```
+
+**Features:**
+- Uses `createServerClient` from `@supabase/ssr`
+- Reads session from Next.js cookies
+- Must be called within a request scope (Server Components, Server Actions, Route Handlers)
+- Throws error if environment variables are missing
+
+**Import:**
+```typescript
+import { createClient } from "@/utils/supabase/server"
+```
+
+### Usage Examples
+
+#### Server Component Data Fetching
+
+**From `app/admin/registrations/page.tsx`:**
+```tsx
+import { createClient } from "@/utils/supabase/server"
+import { redirect } from "next/navigation"
+
+export default async function AdminRegistrationsPage() {
+  const supabase = await createClient()
+
+  // Check authentication
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  if (!session) {
+    redirect('/login')
+  }
+
+  // Fetch data server-side
+  const { data: registrations, error } = await supabase
+    .from('registrations')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching registrations:', error)
+    return <div>Error loading data</div>
+  }
+
+  return (
+    <div>
+      <h1>Registrations ({registrations.length})</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Arrival</th>
+          </tr>
+        </thead>
+        <tbody>
+          {registrations.map(reg => (
+            <tr key={reg.id}>
+              <td>{reg.first_name} {reg.last_name}</td>
+              <td>{reg.email}</td>
+              <td>{reg.mobile_number}</td>
+              <td>{reg.arrival_date}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+```
+
+#### Server Action
+
+```tsx
+"use server"
+
+import { createClient } from "@/utils/supabase/server"
+import { revalidatePath } from "next/cache"
+
+export async function deleteRegistration(id: string) {
+  const supabase = await createClient()
+
+  // Verify authentication
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('Unauthorized')
+  }
+
+  // Delete record
+  const { error } = await supabase
+    .from('registrations')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete: ${error.message}`)
+  }
+
+  // Revalidate the page
+  revalidatePath('/admin/registrations')
+  
+  return { success: true }
+}
+```
+
+#### Route Handler
+
+```typescript
+import { createClient } from "@/utils/supabase/server"
+import { NextResponse } from "next/server"
+
+export async function GET() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('count')
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ count: data[0].count })
+}
+
+export async function POST(request: Request) {
+  const supabase = await createClient()
+  const body = await request.json()
+
+  const { data, error } = await supabase
+    .from('registrations')
+    .insert([body])
+    .select()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  return NextResponse.json({ data }, { status: 201 })
+}
+```
+
+---
+
+## Middleware Client
+
+**File:** `utils/supabase/middleware.ts`
+
+### updateSession
+
+<ResponseField name="updateSession" type="(request: NextRequest) => Promise<NextResponse>">
+  Middleware function that refreshes Supabase auth session and updates cookies
+</ResponseField>
+
+**Signature:**
+```typescript
+export async function updateSession(request: NextRequest): Promise<NextResponse>
+```
+
+**Features:**
+- Refreshes auth tokens before server code executes
+- Updates response cookies with refreshed session
+- Adds cache control headers for admin routes
+- Safe to call even if environment variables are missing
+
+**Import:**
+```typescript
+import { updateSession } from "@/utils/supabase/middleware"
+```
+
+### Implementation
+
+**In `middleware.ts`:**
+```typescript
+import { type NextRequest } from "next/server"
+import { updateSession } from "@/utils/supabase/middleware"
+
+export async function middleware(request: NextRequest) {
+  // Update session and get response
+  return await updateSession(request)
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except static files and images
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
+```
+
+### How It Works
+
+1. **Session Refresh:**
+   ```typescript
+   await supabase.auth.getClaims()
+   ```
+   This triggers session refresh if needed
+
+2. **Cookie Updates:**
+   ```typescript
+   cookies: {
+     getAll() {
+       return request.cookies.getAll()
+     },
+     setAll(cookiesToSet) {
+       cookiesToSet.forEach(({ name, value }) =>
+         request.cookies.set(name, value)
+       )
+       supabaseResponse = NextResponse.next({ request })
+       cookiesToSet.forEach(({ name, value, options }) =>
+         supabaseResponse.cookies.set(name, value, options)
+       )
+     },
+   }
+   ```
+
+3. **Cache Control for Admin Routes:**
+   ```typescript
+   if (
+     request.nextUrl.pathname.startsWith("/admin") ||
+     request.nextUrl.pathname === "/api/registrations/export"
+   ) {
+     supabaseResponse.headers.set("Cache-Control", "no-store, max-age=0")
+   }
+   ```
+
+---
+
+## Authentication Patterns
+
+### Sign In (Client-side)
+
+```tsx
+"use client"
+
+import { supabase } from "@/utils/supabase/client"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+
+export function SignInForm() {
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setError(error.message)
+    } else {
+      router.push("/admin")
+      router.refresh()
+    }
+  }
+
+  return (
+    <form onSubmit={handleSignIn}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+        required
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+        required
+      />
+      {error && <p className="text-red-500">{error}</p>}
+      <button type="submit">Sign In</button>
+    </form>
+  )
+}
+```
+
+### Sign Out (Client-side)
+
+```tsx
+"use client"
+
+import { supabase } from "@/utils/supabase/client"
+import { useRouter } from "next/navigation"
+
+export function SignOutButton() {
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push("/")
+    router.refresh()
+  }
+
+  return (
+    <button onClick={handleSignOut}>
+      Sign Out
+    </button>
+  )
+}
+```
+
+### Protected Server Component
+
+```tsx
+import { createClient } from "@/utils/supabase/server"
+import { redirect } from "next/navigation"
+
+export default async function ProtectedPage() {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  return (
+    <div>
+      <h1>Welcome, {user.email}</h1>
+      {/* Protected content */}
+    </div>
+  )
+}
+```
+
+---
+
+## Error Handling
+
+### Client-side Query
+
+```tsx
+import { supabase } from "@/utils/supabase/client"
+
+const { data, error } = await supabase
+  .from('registrations')
+  .select('*')
+
+if (error) {
+  console.error('Supabase error:', error.message)
+  toast.error('Failed to load data')
+  return
+}
+
+// Use data
+console.log(data)
+```
+
+### Server-side Query with Try-Catch
+
+```typescript
+import { createClient } from "@/utils/supabase/server"
+
+try {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('*')
+  
+  if (error) throw error
+  
+  return data
+} catch (error) {
+  console.error('Database error:', error)
+  throw new Error('Failed to fetch registrations')
+}
+```
+
+---
+
+## TypeScript Types
+
+```typescript
+import { SupabaseClient } from '@supabase/supabase-js'
+import { Database } from '@/types/database' // Generated from Supabase CLI
+
+// Typed client
+const supabase: SupabaseClient<Database> = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+// Typed query
+type Registration = Database['public']['Tables']['registrations']['Row']
+
+const { data } = await supabase
+  .from('registrations')
+  .select('*')
+  .returns<Registration[]>()
+```
+
+---
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Client Usage">
+    **When to use `supabase` from `client.ts`:**
+    
+    - Client Components (`"use client"`)
+    - Event handlers (onClick, onSubmit)
+    - React hooks (useEffect, useState)
+    - Real-time subscriptions
+    - Browser-only features
+    
+    **Example:**
+    ```tsx
+    "use client"
+    import { supabase } from "@/utils/supabase/client"
+    ```
+  </Tab>
+  
+  <Tab title="Server Usage">
+    **When to use `createClient` from `server.ts`:**
+    
+    - Server Components (async components)
+    - Server Actions (`"use server"`)
+    - Route Handlers (API routes)
+    - Initial data fetching
+    - Authentication checks
+    
+    **Example:**
+    ```tsx
+    import { createClient } from "@/utils/supabase/server"
+    const supabase = await createClient()
+    ```
+  </Tab>
+  
+  <Tab title="Middleware Usage">
+    **When to use `updateSession` from `middleware.ts`:**
+    
+    - In `middleware.ts` file only
+    - Before any server-side auth checks
+    - To refresh tokens automatically
+    - To update cookies in response
+    
+    **Example:**
+    ```tsx
+    import { updateSession } from "@/utils/supabase/middleware"
+    export async function middleware(request: NextRequest) {
+      return await updateSession(request)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Common Pitfalls
+
+<Warning>
+  **Don't mix client and server imports:**
+  ```tsx
+  // ❌ Wrong - using browser client in Server Component
+  import { supabase } from "@/utils/supabase/client"
+  
+  export default async function ServerComponent() {
+    const { data } = await supabase.from('table').select() // Won't work!
+  }
+  
+  // ✅ Correct
+  import { createClient } from "@/utils/supabase/server"
+  
+  export default async function ServerComponent() {
+    const supabase = await createClient()
+    const { data } = await supabase.from('table').select()
+  }
+  ```
+</Warning>
+
+<Warning>
+  **Don't forget to await `createClient()`:**
+  ```tsx
+  // ❌ Wrong
+  const supabase = createClient() // Missing await!
+  
+  // ✅ Correct
+  const supabase = await createClient()
+  ```
+</Warning>
+
+<Warning>
+  **Always check for errors:**
+  ```tsx
+  // ❌ Wrong - ignoring errors
+  const { data } = await supabase.from('table').select()
+  
+  // ✅ Correct
+  const { data, error } = await supabase.from('table').select()
+  if (error) {
+    console.error(error)
+    // Handle error
+  }
+  ```
+</Warning>

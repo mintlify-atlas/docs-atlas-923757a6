@@ -1,0 +1,800 @@
+---
+title: Organisms
+description: Complex UI sections and page-level components in the NJ Rajat Mahotsav platform
+---
+
+# Organisms
+
+Organisms are complex UI sections that combine molecules and atoms to create significant portions of a page. They represent complete, functional sections that can work independently.
+
+## Overview
+
+The `/components/organisms` directory contains 40+ complex components organized by function:
+
+<CardGroup cols={3}>
+  <Card title="Navigation" icon="bars">
+    Navigation, Desktop/Mobile variants, FloatingMenuButton
+  </Card>
+  <Card title="Forms & Modals" icon="rectangle-list">
+    SevaSubmissionForm, EventDetailsModal, PhotoAlbumModal
+  </Card>
+  <Card title="Media & Content" icon="photo-film">
+    VideoSection, ImageMarquee, Carousels, Galleries
+  </Card>
+</CardGroup>
+
+## Navigation Components
+
+### Navigation
+
+Main navigation bar with responsive menu system and admin access control.
+
+**Features:**
+- Dynamic menu items with icons and gradients
+- Supabase authentication for admin access
+- Tubelight navbar integration
+- Responsive logo display
+- Sub-menu support (e.g., Seva dropdown)
+- Available inline width calculation
+
+**Usage:**
+
+```tsx components/organisms/navigation.tsx
+import { Navigation } from '@/components/organisms'
+
+// Used in root layout - no props required
+<Navigation />
+```
+
+**Menu Structure:**
+
+```typescript
+type NavigationItem = {
+  icon: NavIcon
+  label: string
+  href: string
+  gradient: string
+  iconColor: string
+  subItems?: NavigationSubItem[]
+}
+
+const menuItems: NavigationItem[] = [
+  { icon: Home, label: "Home", href: "/", ... },
+  { icon: ScrollText, label: "Timeline", href: "/timeline", ... },
+  { icon: ClipboardPen, label: "Registration", href: "/registration", ... },
+  // ... more items
+  {
+    icon: PiHandsPraying,
+    label: "Seva",
+    href: "#",
+    subItems: [
+      { icon: Heart, label: "Community Seva", href: "/community-seva" },
+      { icon: PiHandsPraying, label: "Spiritual Seva", href: "/spiritual-seva" }
+    ]
+  }
+]
+```
+
+**Admin Access:**
+
+```typescript components/organisms/navigation.tsx
+useEffect(() => {
+  const loadUser = async () => {
+    const { data, error } = await supabase.auth.getUser()
+    if (!error) {
+      setCanAccessAdmin(isAllowedAdminDomain(data.user?.email))
+    }
+  }
+  loadUser()
+}, [])
+```
+
+### StickyFooter
+
+Persistent footer with social links and temple information.
+
+**Features:**
+- Responsive desktop/mobile layouts
+- Social media links (YouTube, Instagram)
+- Temple address and contact
+- Maninagar logo
+- Privacy/Contact/About links
+- Backdrop blur effect
+
+**Usage:**
+
+```tsx components/organisms/sticky-footer.tsx
+import StickyFooter from '@/components/organisms'
+
+// Used in root layout - no props required
+<StickyFooter />
+```
+
+**Desktop Layout:**
+
+```tsx
+<div className="grid grid-cols-3 items-start py-1 px-6 gap-4">
+  {/* Left: Temple info */}
+  <div className="space-y-1">
+    <span>Shree Swaminarayan Temple Secaucus, NJ</span>
+    <div>200 Swamibapa Way, Secaucus, NJ 07094</div>
+  </div>
+  
+  {/* Center: Inspired by text */}
+  <div className="text-center pt-1">
+    <span>Inspired by His Divine Holiness...</span>
+  </div>
+  
+  {/* Right: Social links */}
+  <div className="flex justify-end items-center gap-3">
+    <a href="https://www.swaminarayangadi.com/newjersey">
+      <img src={maningarLogo} alt="Maninagar" />
+    </a>
+    {/* YouTube, Instagram links */}
+  </div>
+</div>
+```
+
+### FloatingMenuButton
+
+Mobile floating action button with expandable menu.
+
+**Features:**
+- Fixed position overlay
+- Animated menu expansion
+- Icon-based navigation
+- Background blur
+- Touch-optimized
+
+**Usage:**
+
+```tsx
+import FloatingMenuButton from '@/components/organisms'
+
+<FloatingMenuButton />
+```
+
+### DesktopNavigation
+
+Desktop-specific navigation variant.
+
+**Usage:**
+
+```tsx
+import DesktopNavigation from '@/components/organisms'
+
+<DesktopNavigation menuItems={items} />
+```
+
+### TubelightNavigation
+
+Special tubelight-styled navigation wrapper.
+
+**Usage:**
+
+```tsx components/organisms/tubelight-navigation.tsx
+import TubelightNavigation from '@/components/organisms'
+
+<TubelightNavigation>
+  <NavigationContent />
+</TubelightNavigation>
+```
+
+## Form Components
+
+### SevaSubmissionForm
+
+Comprehensive seva (spiritual service) submission form with validation.
+
+**Features:**
+- Multi-field personal information
+- Country/Mandal selection with auto-population
+- International phone input
+- Multiple seva type selection (Malas, Dhyan, Pradakshinas, etc.)
+- Dynamic field visibility
+- react-hook-form integration
+- Zod validation
+- Toast notifications
+- Loading states
+
+**Form Schema:**
+
+```typescript components/organisms/seva-submission-form.tsx
+const FormSchema = z.object({
+  firstName: z.string().min(1).regex(/^[A-Za-z]+$/),
+  middleName: z.string().optional(),
+  lastName: z.string().min(1).regex(/^[A-Za-z]+$/),
+  ghaam: z.string().min(1).regex(/^[A-Za-z]+$/),
+  country: z.string().min(1),
+  mandal: z.string().min(1),
+  phoneCountryCode: z.string().min(1),
+  phone: z.string().min(1).refine(isValidPhoneNumber),
+  selectedSevas: z.array(z.string()).min(1),
+  // Dynamic seva count fields
+  malas: z.string().optional(),
+  dhyan: z.string().optional(),
+  pradakshinas: z.string().optional(),
+  dandvats: z.string().optional(),
+  padyatras: z.string().optional(),
+})
+```
+
+**Usage:**
+
+```tsx
+import { SevaSubmissionForm } from '@/components/organisms'
+
+<SevaSubmissionForm />
+```
+
+**Seva Types:**
+
+```typescript
+const sevaTypes = [
+  { id: "malas", label: "Malas" },
+  { id: "dhyan", label: "Dhyan (Minutes)" },
+  { id: "pradakshinas", label: "Pradakshinas" },
+  { id: "dandvats", label: "Dandvats" },
+  { id: "padyatras", label: "Padyatras (KM)" }
+]
+```
+
+**Country/Mandal Logic:**
+
+```typescript components/organisms/seva-submission-form.tsx
+const getMandals = (country: string) => {
+  const mandalOptions = {
+    "england": ["Bolton", "London"],
+    "usa": ["Alabama", "California", "Chicago", ...]
+  }
+  return mandalOptions[country] || []
+}
+
+// Auto-populate for specific countries
+const mandalMap = {
+  "india": "Maninagar",
+  "australia": "Perth",
+  "canada": "Toronto",
+  "kenya": "Nairobi"
+}
+```
+
+## Media Components
+
+### VideoSection
+
+Video display section with custom controls and YouTube embed support.
+
+**Usage:**
+
+```tsx
+import VideoSection from '@/components/organisms'
+
+<VideoSection 
+  videoUrl="https://youtube.com/watch?v=..."
+  title="Event Highlights"
+  description="Watch the celebration moments"
+/>
+```
+
+### ImageMarquee
+
+Dual-row infinite scrolling image gallery.
+
+**Props Interface:**
+
+```typescript components/organisms/image-marquee.tsx
+interface ImageMarqueeProps {
+  firstRow: MarqueeImage[]
+  secondRow: MarqueeImage[]
+  imageWidth?: string
+  imageHeight?: string
+  gap?: string
+  duration?: { mobile: number; desktop: number }
+}
+
+interface MarqueeImage {
+  src: string
+  alt: string
+}
+```
+
+**Usage:**
+
+```tsx
+import { ImageMarquee } from '@/components/organisms'
+
+const firstRowImages = [
+  { src: '/image1.jpg', alt: 'Event 1' },
+  { src: '/image2.jpg', alt: 'Event 2' },
+  // ...
+]
+
+const secondRowImages = [
+  { src: '/image3.jpg', alt: 'Event 3' },
+  // ...
+]
+
+<ImageMarquee 
+  firstRow={firstRowImages}
+  secondRow={secondRowImages}
+  imageWidth="w-[20rem] md:w-[30rem]"
+  imageHeight="h-[30vh] md:h-[30vh]"
+  duration={{ mobile: 55, desktop: 40 }}
+/>
+```
+
+**Features:**
+- Bidirectional scrolling (first row left-to-right, second row right-to-left)
+- Responsive duration based on device type
+- Image preloading
+- Intersection observer for performance
+- Infinite loop animation
+
+### ImageCarouselModal
+
+Full-screen modal for image gallery browsing.
+
+**Usage:**
+
+```tsx
+import ImageCarouselModal from '@/components/organisms'
+
+<ImageCarouselModal 
+  images={photoArray}
+  isOpen={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+  initialIndex={0}
+/>
+```
+
+### ResponsiveImageGallery
+
+Responsive masonry-style image grid.
+
+**Usage:**
+
+```tsx components/organisms/responsive-image-gallery.tsx
+import ResponsiveImageGallery from '@/components/organisms'
+
+<ResponsiveImageGallery 
+  images={galleryImages}
+  columns={{ mobile: 1, tablet: 2, desktop: 3 }}
+/>
+```
+
+### AashirwadVideoPlayer
+
+Custom video player for Aashirwad (blessing) videos.
+
+**Usage:**
+
+```tsx
+import AashirwadVideoPlayer from '@/components/organisms'
+
+<AashirwadVideoPlayer 
+  videoUrl="/videos/aashirwad.mp4"
+  posterImage="/posters/aashirwad.jpg"
+/>
+```
+
+## Content Sections
+
+### AnimatedTextSection
+
+Text section with GSAP scroll animations.
+
+**Usage:**
+
+```tsx
+import AnimatedTextSection from '@/components/organisms'
+
+<AnimatedTextSection 
+  title="Welcome to NJ Rajat Mahotsav"
+  subtitle="A Grand Celebration"
+  content="Experience the spiritual journey..."
+/>
+```
+
+### BentoInitiatives
+
+Bento-grid layout for displaying initiatives.
+
+**Usage:**
+
+```tsx
+import BentoInitiatives from '@/components/organisms'
+
+const initiatives = [
+  { title: 'Community Service', icon: Heart, description: '...' },
+  { title: 'Education', icon: BookOpen, description: '...' },
+  // ...
+]
+
+<BentoInitiatives items={initiatives} />
+```
+
+### PathOfServiceStory
+
+Narrative section about seva (service) path.
+
+**Usage:**
+
+```tsx
+import PathOfServiceStory from '@/components/organisms'
+
+<PathOfServiceStory />
+```
+
+### StandardPageHeader
+
+Consistent page header component.
+
+**Usage:**
+
+```tsx components/organisms/standard-page-header.tsx
+import StandardPageHeader from '@/components/organisms'
+
+<StandardPageHeader 
+  title="Event Schedule"
+  description="View the complete schedule of events"
+  backgroundImage="/headers/schedule.jpg"
+/>
+```
+
+## Carousel Components
+
+### GuruCarousel
+
+Carousel for displaying guru images.
+
+**Usage:**
+
+```tsx
+import GuruCarousel from '@/components/organisms'
+
+const gurus = [
+  { imageId: 'guru-1', name: 'Name 1' },
+  { imageId: 'guru-2', name: 'Name 2' },
+]
+
+<GuruCarousel items={gurus} />
+```
+
+### MobileSectionCarousel
+
+Mobile-optimized section carousel.
+
+**Usage:**
+
+```tsx
+import MobileSectionCarousel from '@/components/organisms'
+
+<MobileSectionCarousel sections={contentSections} />
+```
+
+## Timeline Components
+
+### MobileTimeline
+
+Mobile-optimized timeline view.
+
+**Props Interface:**
+
+```typescript components/organisms/MobileTimeline.tsx
+interface MobileTimelineProps {
+  events: TimelineEvent[]
+  selectedDate?: Date
+  onEventClick?: (event: TimelineEvent) => void
+}
+
+interface TimelineEvent {
+  id: string
+  title: string
+  time: string
+  description?: string
+  location?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import MobileTimeline from '@/components/organisms'
+
+<MobileTimeline 
+  events={scheduleEvents}
+  selectedDate={filterDate}
+  onEventClick={handleEventClick}
+/>
+```
+
+## Modal Components
+
+### EventDetailsModal
+
+Detailed event information modal.
+
+**Usage:**
+
+```tsx
+import { EventDetailsModal } from '@/components/organisms'
+
+<EventDetailsModal 
+  event={selectedEvent}
+  isOpen={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+/>
+```
+
+### PhotoAlbumModal
+
+Photo album viewer with navigation.
+
+**Usage:**
+
+```tsx
+import { PhotoAlbumModal } from '@/components/organisms'
+
+<PhotoAlbumModal 
+  photos={albumPhotos}
+  albumTitle="Pratishta Mahotsav 2024"
+  isOpen={showAlbum}
+  onClose={() => setShowAlbum(false)}
+/>
+```
+
+## Special Effect Components
+
+### ShaderBackground
+
+WebGL shader background effect.
+
+**Usage:**
+
+```tsx components/organisms/shader-background.tsx
+import ShaderBackground from '@/components/organisms'
+
+<ShaderBackground>
+  <ContentHere />
+</ShaderBackground>
+```
+
+### ParallaxDivider
+
+Parallax scroll effect divider.
+
+**Usage:**
+
+```tsx
+import { ParallaxDivider } from '@/components/organisms'
+
+<ParallaxDivider 
+  backgroundImage="/dividers/pattern.jpg"
+  height="200px"
+/>
+```
+
+### ParallaxQuote
+
+Parallax quote section.
+
+**Usage:**
+
+```tsx
+import { ParallaxQuote } from '@/components/organisms'
+
+<ParallaxQuote 
+  quote="In seva lies the path to divinity"
+  author="Acharya Swamishree"
+/>
+```
+
+## Event Components
+
+### EventsGrid
+
+Grid layout for event cards.
+
+**Usage:**
+
+```tsx
+import { EventsGrid } from '@/components/organisms'
+
+<EventsGrid 
+  events={filteredEvents}
+  onEventClick={handleEventClick}
+/>
+```
+
+### EventsFilterBar
+
+Filter controls for events.
+
+**Usage:**
+
+```tsx
+import { EventsFilterBar } from '@/components/organisms'
+
+<EventsFilterBar 
+  selectedTags={filters.tags}
+  selectedDate={filters.date}
+  onTagChange={setTagFilter}
+  onDateChange={setDateFilter}
+/>
+```
+
+## Landing Page Components
+
+### Landing Page (TitleSection)
+
+Main landing page hero section.
+
+**Usage:**
+
+```tsx
+import TitleSection from '@/components/organisms'
+
+<TitleSection />
+```
+
+### IntroVideoReveal
+
+Video reveal animation on scroll.
+
+**Usage:**
+
+```tsx
+import { IntroVideoReveal } from '@/components/organisms'
+
+<IntroVideoReveal 
+  videoSrc="/intro.mp4"
+  posterSrc="/intro-poster.jpg"
+/>
+```
+
+## Complex Integration Examples
+
+### Full Event Page Structure
+
+```tsx
+import {
+  StandardPageHeader,
+  EventsFilterBar,
+  EventsGrid,
+  EventDetailsModal,
+  PhotoAlbumModal
+} from '@/components/organisms'
+
+export default function EventsPage() {
+  const [events, setEvents] = useState([])
+  const [filters, setFilters] = useState({ tags: [], date: null })
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [selectedAlbum, setSelectedAlbum] = useState(null)
+  
+  return (
+    <>
+      <StandardPageHeader 
+        title="Latest Events"
+        description="Explore our community events"
+      />
+      
+      <EventsFilterBar 
+        selectedTags={filters.tags}
+        selectedDate={filters.date}
+        onTagChange={(tags) => setFilters({ ...filters, tags })}
+        onDateChange={(date) => setFilters({ ...filters, date })}
+      />
+      
+      <EventsGrid 
+        events={filteredEvents}
+        onEventClick={setSelectedEvent}
+        onPhotoClick={setSelectedAlbum}
+      />
+      
+      <EventDetailsModal 
+        event={selectedEvent}
+        isOpen={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+      />
+      
+      <PhotoAlbumModal 
+        photos={selectedAlbum?.photos}
+        albumTitle={selectedAlbum?.title}
+        isOpen={!!selectedAlbum}
+        onClose={() => setSelectedAlbum(null)}
+      />
+    </>
+  )
+}
+```
+
+### Form with Toast Notifications
+
+```tsx
+import { SevaSubmissionForm } from '@/components/organisms'
+import { Toaster } from '@/components/molecules'
+import { useToast } from '@/hooks/use-toast'
+
+export default function SevaPage() {
+  return (
+    <>
+      <StandardPageHeader 
+        title="Spiritual Seva"
+        description="Submit your spiritual service contributions"
+      />
+      
+      <div className="container mx-auto px-4 py-8">
+        <SevaSubmissionForm />
+      </div>
+      
+      <Toaster />
+    </>
+  )
+}
+```
+
+## Performance Considerations
+
+<Accordion title="Lazy Loading">
+  Many organisms support lazy loading for heavy components:
+  ```tsx
+  import dynamic from 'next/dynamic'
+  
+  const VideoSection = dynamic(() => import('@/components/organisms/video-section'), {
+    loading: () => <LoadingSkeleton />,
+    ssr: false
+  })
+  ```
+</Accordion>
+
+<Accordion title="Intersection Observer">
+  Use intersection observer for scroll-triggered content:
+  ```tsx
+  import { useInView } from 'react-intersection-observer'
+  
+  const { ref, inView } = useInView({
+    threshold: 0.3,
+    triggerOnce: true
+  })
+  
+  <div ref={ref}>
+    {inView && <AnimatedContent />}
+  </div>
+  ```
+</Accordion>
+
+<Accordion title="Image Optimization">
+  Always use Cloudflare CDN helpers:
+  ```tsx
+  import { getCloudflareImage, getCloudflareImageMobileWp } from '@/lib/cdn-assets'
+  
+  const imageUrl = deviceType === 'mobile' 
+    ? getCloudflareImageMobileWp(imageId)
+    : getCloudflareImage(imageId)
+  ```
+</Accordion>
+
+## Best Practices
+
+<Warning>
+  When building organisms:
+  1. Keep them self-contained and independent
+  2. Use composition over inheritance
+  3. Implement proper error boundaries
+  4. Handle loading and error states
+  5. Make them responsive by default
+  6. Optimize for performance (lazy load, code split)
+  7. Document complex prop interfaces
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="UI Components" icon="palette" href="/components/ui-components">
+    Explore shadcn/ui components and custom effects
+  </Card>
+  <Card title="Molecules" icon="cube" href="/components/molecules">
+    Review the building blocks used in organisms
+  </Card>
+</CardGroup>

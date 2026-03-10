@@ -1,0 +1,657 @@
+---
+title: Styling System
+description: Deep dive into Tailwind CSS configuration, custom CSS variables, and styling patterns used in the NJ Rajat Mahotsav platform
+---
+
+## Styling Stack
+
+The NJ Rajat Mahotsav platform uses a comprehensive styling system built on **Tailwind CSS v4** with extensive customization.
+
+<CardGroup cols={2}>
+  <Card title="Tailwind CSS v4" icon="palette">
+    Utility-first CSS framework with custom configuration
+  </Card>
+  
+  <Card title="CSS Variables" icon="code">
+    Design tokens for consistent theming
+  </Card>
+  
+  <Card title="Custom Fonts" icon="font">
+    Google Fonts with CSS variable integration
+  </Card>
+  
+  <Card title="Animations" icon="sparkles">
+    Framer Motion, GSAP, and CSS animations
+  </Card>
+</CardGroup>
+
+## Typography System
+
+Three custom font families are configured as CSS variables:
+
+### Font Configuration
+
+```tsx app/layout.tsx
+import { Figtree } from "next/font/google"
+import { Instrument_Serif } from "next/font/google"
+import { Noto_Sans_Gujarati } from "next/font/google"
+
+const figtree = Figtree({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-figtree",
+  display: "swap",
+})
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  variable: "--font-instrument-serif",
+  display: "block",
+})
+
+const notoGujarati = Noto_Sans_Gujarati({
+  subsets: ["gujarati"],
+  weight: ["400", "700"],
+  variable: "--font-gujarati",
+  display: "block",
+})
+```
+
+### Font Usage
+
+<Tabs>
+  <Tab title="Figtree (Default)">
+    **Primary font** for body text and UI elements:
+    
+    ```css
+    body {
+      font-family: var(--font-figtree);
+    }
+    ```
+    
+    **Tailwind class:**
+    ```tsx
+    <p className="font-sans">
+    ```
+  </Tab>
+  
+  <Tab title="Instrument Serif">
+    **Decorative font** for headings and emphasis:
+    
+    ```css
+    .hero-title {
+      font-family: var(--font-instrument-serif);
+    }
+    ```
+    
+    **Tailwind class:**
+    ```tsx
+    <h1 className="font-instrument-serif">
+    ```
+    
+    **Utility class:**
+    ```tsx
+    <h1 className="instrument">
+    ```
+  </Tab>
+  
+  <Tab title="Noto Sans Gujarati">
+    **Gujarati text** support:
+    
+    ```tsx
+    <h2 className="font-gujarati">
+      જય શ્રી સ્વામિનારાયણ
+    </h2>
+    ```
+  </Tab>
+</Tabs>
+
+## Color Palette
+
+### Custom Preset Colors
+
+Defined in `app/globals.css` as CSS variables:
+
+```css app/globals.css
+:root {
+  /* Navy shades */
+  --preset-navy-accent: #141F4D;
+  --preset-deep-navy: #0D132D;
+  --preset-navy-blue: #030A1B;
+  --preset-zodiac-blue: #0B1B33;
+  
+  /* Neutrals */
+  --preset-light-gray: #F3F3F3;
+  --preset-stone: #E8E6E0;
+  --preset-pale-gray: #D9DEE8;
+  
+  /* Accents */
+  --preset-red: #B50000;
+  --preset-bluish-gray: #abb8c3;
+  --preset-charcoal: #293340;
+  --preset-white: #FFFFFF;
+}
+```
+
+### Tailwind Color Configuration
+
+Colors are exposed as Tailwind utilities:
+
+```js tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        'preset-navy-accent': '#141F4D',
+        'preset-deep-navy': '#0D132D',
+        'preset-navy-blue': '#030A1B',
+        'preset-zodiac-blue': '#0B1B33',
+        'preset-light-gray': '#F3F3F3',
+        'preset-stone': '#E8E6E0',
+        'preset-pale-gray': '#D9DEE8',
+        'preset-red': '#B50000',
+        'preset-bluish-gray': '#abb8c3',
+        'preset-white': '#FFFFFF',
+        'preset-charcoal': '#293340',
+      },
+    },
+  },
+}
+```
+
+### Usage Examples
+
+<Tabs>
+  <Tab title="Background Colors">
+    ```tsx
+    <div className="bg-preset-deep-navy">
+      <p className="text-preset-white">Dark navy background</p>
+    </div>
+    
+    <div className="bg-preset-light-gray">
+      <p className="text-preset-charcoal">Light gray background</p>
+    </div>
+    ```
+  </Tab>
+  
+  <Tab title="Text Colors">
+    ```tsx
+    <h1 className="text-preset-navy-accent">Navy accent title</h1>
+    <p className="text-preset-charcoal">Charcoal body text</p>
+    <span className="text-preset-red">Red accent</span>
+    ```
+  </Tab>
+  
+  <Tab title="Border Colors">
+    ```tsx
+    <div className="border-2 border-preset-pale-gray">
+      Gray border
+    </div>
+    ```
+  </Tab>
+</Tabs>
+
+### Schedule Color Scheme
+
+Special color tokens for schedule pages:
+
+```js tailwind.config.js
+colors: {
+  'schedule': {
+    'primary': '#ea580c',        // orange-600
+    'secondary': '#dc2626',      // red-600
+    'light': '#f97316',          // orange-500
+    'light-secondary': '#ef4444', // red-500
+  },
+}
+```
+
+## Custom Gradients
+
+### Preset Gradient Backgrounds
+
+```css app/globals.css
+:root {
+  --preset-gradient-very-light-gray-to-bluish-gray: linear-gradient(135deg, rgb(238, 238, 238) 0%, rgb(169, 184, 195) 100%);
+  --preset-gradient-topper: linear-gradient(0deg, #0D132D 24.28%, #0B1B33 100%);
+  --preset-gradient-blue-alt: linear-gradient(321deg, #141F4D 7.41%, #12347F 80.62%);
+  --preset-gradient-blue: linear-gradient(180deg, #030A1B 0%, #3b82f6 100%);
+}
+```
+
+### Tailwind Gradient Utilities
+
+```js tailwind.config.js
+backgroundImage: {
+  'preset-gradient-very-light-gray-to-bluish-gray': 'linear-gradient(135deg, rgb(238, 238, 238) 0%, rgb(169, 184, 195) 100%)',
+  'preset-gradient-topper': 'linear-gradient(0deg, #0D132D 24.28%, #0B1B33 100%)',
+  'preset-gradient-blue-alt': 'linear-gradient(321deg, #141F4D 7.41%, #12347F 80.62%)',
+}
+```
+
+**Usage:**
+
+```tsx
+<div className="bg-preset-gradient-topper">
+  Gradient background
+</div>
+```
+
+## Custom Spacing
+
+Page layout spacing variables:
+
+```css app/globals.css
+:root {
+  --page-header-spacing: /* mb-12 md:mb-12 lg:mb-12 */;
+  --page-title-description-spacing: /* mb-2 */;
+  --page-bottom-spacing: /* pb-8 */;
+  --navbar-height: 180px;
+}
+```
+
+### Tailwind Spacing Extensions
+
+```js tailwind.config.js
+spacing: {
+  'page-header': 'var(--page-header-spacing)',
+  'page-title-desc': 'var(--page-title-description-spacing)',
+  'page-bottom': 'var(--page-bottom-spacing)',
+}
+```
+
+## Utility Classes
+
+### Page Layout Utilities
+
+```css app/globals.css
+@layer utilities {
+  .page-header-spacing {
+    @apply mb-12 md:mb-12 lg:mb-12;
+  }
+  
+  .page-bottom-spacing {
+    @apply pb-8;
+  }
+  
+  /* Extend page background behind navbar */
+  .page-bg-extend {
+    margin-top: calc(-1 * var(--navbar-height));
+    padding-top: calc(var(--navbar-height) + 2rem);
+  }
+  
+  @media (min-width: 768px) {
+    .page-bg-extend {
+      padding-top: calc(var(--navbar-height) + 3rem);
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .page-bg-extend {
+      padding-top: calc(var(--navbar-height) + 5rem);
+    }
+  }
+}
+```
+
+### Standard Page Header Classes
+
+```css app/globals.css
+.standard-page-title {
+  @apply text-4xl md:text-4xl lg:text-5xl xl:text-6xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2 leading-tight;
+}
+
+.standard-page-subtitle {
+  @apply text-2xl md:text-3xl font-semibold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-6 leading-relaxed;
+}
+
+.standard-page-description {
+  @apply text-lg md:text-xl lg:text-2xl text-gray-600 leading-relaxed max-w-4xl mx-auto;
+}
+```
+
+**Usage:**
+
+```tsx
+<div className="page-bg-extend">
+  <h1 className="standard-page-title">Event Registration</h1>
+  <h2 className="standard-page-subtitle">Secure Your Spot</h2>
+  <p className="standard-page-description">
+    Join us for the Silver Jubilee celebration
+  </p>
+</div>
+```
+
+### Section Title Utility
+
+```css app/globals.css
+.section-title {
+  @apply font-bold mb-12 md:mb-24 relative z-10 text-center;
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin-left: auto;
+  margin-right: auto;
+  background: linear-gradient(to right, rgb(234 88 12), rgb(220 38 38));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  line-height: 1.2;
+}
+```
+
+## Component Styles
+
+### Hero Components
+
+```css app/globals.css
+@layer components {
+  .hero-shell {
+    max-width: 1200px;
+    width: min(1200px, 100%);
+    margin: 0 auto;
+    padding-left: clamp(1.25rem, 3vw, 2.75rem);
+    padding-right: clamp(1.25rem, 3vw, 2.75rem);
+  }
+
+  .hero-surface {
+    position: relative;
+    width: 100%;
+    padding: clamp(1.5rem, 3vw, 2.75rem);
+    border-radius: 32px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.35));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 24px 80px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(12px);
+  }
+
+  .hero-title {
+    font-family: var(--font-instrument-serif);
+    font-weight: 700;
+    font-size: clamp(2.6rem, 4vw, 3.9rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #fbbf24, #fb7185, #f97316);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1.05rem, 2vw, 1.35rem);
+    line-height: 1.55;
+    color: rgb(226 232 240);
+  }
+}
+```
+
+**Usage:**
+
+```tsx
+<div className="hero-shell">
+  <div className="hero-surface">
+    <h1 className="hero-title">NJ Rajat Mahotsav 2026</h1>
+    <p className="hero-subtitle">Silver Jubilee Celebration</p>
+  </div>
+</div>
+```
+
+### Call-to-Action Buttons
+
+```css app/globals.css
+.hero-cta-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 sm:px-7 sm:py-3.5 font-semibold text-slate-950 bg-white shadow-[0_12px_40px_rgba(255,255,255,0.25)] transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_50px_rgba(255,255,255,0.32)] active:translate-y-0.5;
+}
+
+.hero-cta-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 sm:px-7 sm:py-3.5 font-semibold text-white border border-white/25 bg-white/10 backdrop-blur-sm transition-transform duration-200 hover:-translate-y-0.5 hover:border-white/40 active:translate-y-0.5;
+}
+```
+
+### Section Container
+
+```css app/globals.css
+.section-shell {
+  max-width: 1200px;
+  width: min(1200px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: clamp(1.25rem, 3vw, 2.5rem);
+  padding-right: clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.landing-section {
+  padding-top: clamp(3rem, 8vw, 5.5rem);
+  padding-bottom: clamp(3rem, 8vw, 5.5rem);
+}
+```
+
+## Custom Animations
+
+### CSS Keyframe Animations
+
+```css app/globals.css
+@keyframes pan-right {
+  0% {
+    object-position: left center;
+  }
+  100% {
+    object-position: right center;
+  }
+}
+
+.animate-pan-right {
+  animation: pan-right 13s ease-in-out infinite alternate;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@keyframes float-attention {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float-attention {
+  animation: float-attention 3.5s ease-in-out infinite;
+}
+
+@keyframes scroll-vertical {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-33.33%);
+  }
+}
+
+.animate-scroll-vertical {
+  animation: scroll-vertical 20s linear infinite;
+}
+
+.animate-scroll-vertical-slow {
+  animation: scroll-vertical 40s linear infinite;
+}
+
+.animate-scroll-vertical-slower {
+  animation: scroll-vertical 45s linear infinite;
+}
+```
+
+### Tailwind Animation Extensions
+
+```js tailwind.config.js
+keyframes: {
+  "accordion-down": {
+    from: { height: "0" },
+    to: { height: "var(--radix-accordion-content-height)" },
+  },
+  "accordion-up": {
+    from: { height: "var(--radix-accordion-content-height)" },
+    to: { height: "0" },
+  },
+},
+animation: {
+  "accordion-down": "accordion-down 0.2s ease-out",
+  "accordion-up": "accordion-up 0.2s ease-out",
+}
+```
+
+## Hero Visual Effects
+
+### Animated Orbs
+
+```css app/globals.css
+.hero-orb-base {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.32;
+  mix-blend-mode: screen;
+}
+
+.hero-orb-1 {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle at 30% 30%, #fbbf24 0%, transparent 60%);
+  animation: orb-1 18s ease-in-out infinite alternate;
+}
+
+.hero-orb-2 {
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle at 70% 40%, #60a5fa 0%, transparent 65%);
+  animation: orb-2 22s ease-in-out infinite alternate;
+}
+
+@keyframes orb-1 {
+  0% {
+    transform: translate(-10%, -5%) scale(1);
+  }
+  100% {
+    transform: translate(8%, 12%) scale(1.08);
+  }
+}
+
+@keyframes orb-2 {
+  0% {
+    transform: translate(20%, 10%) scale(1);
+  }
+  100% {
+    transform: translate(-12%, -6%) scale(1.12);
+  }
+}
+```
+
+### Grain and Noise Effects
+
+```css app/globals.css
+.hero-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06) 0, transparent 35%),
+    radial-gradient(circle at 80% 30%, rgba(255,255,255,0.05) 0, transparent 32%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.25'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+  opacity: 0.32;
+}
+```
+
+## Responsive Design Utilities
+
+### Mobile-Specific Styles
+
+```css app/globals.css
+@media (max-width: 768px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    overflow-y: auto;
+  }
+  
+  body {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+  
+  /* Hide floating elements when video is playing */
+  body.hide-floating-elements .scroll-to-top,
+  body.hide-floating-elements .floating-menu-button {
+    display: none !important;
+  }
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use CSS Variables">
+    Define design tokens as CSS variables for consistency:
+    
+    ```css
+    :root {
+      --color-primary: #0D132D;
+      --spacing-section: clamp(3rem, 8vw, 5.5rem);
+    }
+    ```
+  </Step>
+  
+  <Step title="Leverage Tailwind Utilities">
+    Prefer Tailwind classes over custom CSS when possible:
+    
+    ```tsx
+    <div className="bg-preset-deep-navy text-preset-white p-6 rounded-2xl">
+    ```
+  </Step>
+  
+  <Step title="Use @layer for Organization">
+    Organize custom CSS using Tailwind layers:
+    
+    ```css
+    @layer base { /* Reset and base styles */ }
+    @layer components { /* Component classes */ }
+    @layer utilities { /* Utility classes */ }
+    ```
+  </Step>
+  
+  <Step title="Responsive with clamp()">
+    Use clamp() for fluid, responsive sizing:
+    
+    ```css
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    padding: clamp(1rem, 3vw, 2rem);
+    ```
+  </Step>
+  
+  <Step title="Performance Optimization">
+    Use will-change and transform for smooth animations:
+    
+    ```css
+    .animated-element {
+      will-change: transform;
+      transform: translateZ(0);
+    }
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Structure" href="/architecture/component-structure">
+    Learn about atomic design implementation
+  </Card>
+  
+  <Card title="State Management" href="/architecture/state-management">
+    Understand Context API and custom hooks
+  </Card>
+</CardGroup>

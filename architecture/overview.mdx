@@ -1,0 +1,269 @@
+---
+title: Architecture Overview
+description: Comprehensive overview of the NJ Rajat Mahotsav platform architecture, tech stack, and design principles
+---
+
+## Project Overview
+
+NJ Rajat Mahotsav is a Next.js 15 application built for the Shree Swaminarayan Temple Secaucus Silver Jubilee celebration event (July 29 - August 2, 2026). The platform features event registration, scheduling, media galleries, and seva (service) submissions.
+
+## Tech Stack
+
+<CardGroup cols={2}>
+  <Card title="Frontend Framework" icon="react">
+    - **Next.js 15** with App Router
+    - **React 18** with Server Components
+    - **TypeScript** for type safety
+  </Card>
+  
+  <Card title="Styling" icon="palette">
+    - **Tailwind CSS v4** with custom configuration
+    - **Framer Motion** for animations
+    - **GSAP** and **Locomotive Scroll** for scroll effects
+  </Card>
+  
+  <Card title="Backend & Storage" icon="database">
+    - **Supabase** for data storage and authentication
+    - **Cloudflare R2** for static assets
+    - **Cloudflare Images** for optimized image delivery
+  </Card>
+  
+  <Card title="UI Components" icon="puzzle-piece">
+    - **shadcn/ui** (New York style, RSC-enabled)
+    - **Radix UI** primitives for accessibility
+    - Custom component registries (@magicui, @aceternity, @skiper-ui)
+  </Card>
+</CardGroup>
+
+## App Structure
+
+The application follows Next.js 15 App Router conventions:
+
+```plaintext
+app/
+├── page.tsx              # Main landing page
+├── layout.tsx            # Root layout with providers
+├── globals.css           # Global styles and CSS variables
+├── registration/         # Event registration flow
+├── schedule/             # Event schedule viewer
+├── community-seva/       # Community service submissions
+├── guest-services/       # Guest services information
+├── spiritual-seva/       # Spiritual service information
+└── api/download/         # File download API endpoint
+```
+
+## Component Organization
+
+Components follow **Atomic Design** principles for scalability and maintainability:
+
+<Steps>
+  <Step title="Atoms">
+    Basic UI primitives that cannot be broken down further:
+    - `loading-screen`, `theme-provider`, `typewriter`, `scroll-to-top`
+    - Located in `/components/atoms/`
+  </Step>
+  
+  <Step title="Molecules">
+    Simple composites of atoms working together:
+    - `guru-card`, `date-picker`, `phone-input`, `countdown-timer`
+    - Located in `/components/molecules/`
+  </Step>
+  
+  <Step title="Organisms">
+    Complex sections combining molecules and atoms:
+    - `navigation`, `carousel`, `forms`, `galleries`, `timeline`
+    - Located in `/components/organisms/`
+  </Step>
+  
+  <Step title="Templates">
+    Page-level layouts and structures:
+    - Currently minimal, focused on component composition
+    - Located in `/components/templates/`
+  </Step>
+  
+  <Step title="UI Components">
+    shadcn/ui components kept separate for easy updates:
+    - Located in `/components/ui/`
+  </Step>
+</Steps>
+
+## Root Layout Structure
+
+The root layout (`app/layout.tsx`) implements a nested provider pattern:
+
+```tsx app/layout.tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${figtree.variable} ${instrumentSerif.variable} ${notoGujarati.variable}`}>
+        <LoadingProvider>
+          <AudioProvider>
+            <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light">
+              <Navigation />
+              <div className="min-h-screen flex flex-col">
+                <main className="flex-1">
+                  {children}
+                </main>
+                <StickyFooter />
+              </div>
+              <ScrollToTop />
+              <FloatingMenuButton />
+              <AudioPlayer />
+            </ThemeProvider>
+          </AudioProvider>
+        </LoadingProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+<Note>
+  All pages automatically include persistent components: Navigation, StickyFooter, ScrollToTop, FloatingMenuButton, and AudioPlayer.
+</Note>
+
+## Path Aliases
+
+TypeScript path aliases are configured for clean imports:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/components/*": ["./components/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/contexts/*": ["./contexts/*"],
+      "@/utils/*": ["./utils/*"]
+    }
+  }
+}
+```
+
+**Usage example:**
+
+```tsx
+import { Navigation } from "@/components/organisms/navigation"
+import { useAudioContext } from "@/contexts/audio-context"
+import { getCloudflareImage } from "@/lib/cdn-assets"
+```
+
+## CDN Asset Management
+
+All static assets are served through Cloudflare for optimal performance:
+
+<Tabs>
+  <Tab title="Static Assets">
+    **Cloudflare R2** serves static files from `https://cdn.njrajatmahotsav.com`:
+    
+    ```ts lib/cdn-assets.ts
+    export const CDN_ASSETS = {
+      mainLogoNoText: 'https://cdn.njrajatmahotsav.com/main_logo_no_text.png',
+      maningarLogo: 'https://cdn.njrajatmahotsav.com/maninagar_logo.png',
+      // ... more assets
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Dynamic Images">
+    **Cloudflare Images** provides optimized image variants:
+    
+    ```ts
+    // Helper functions for different variants
+    getCloudflareImage(imageId)          // Default variant
+    getCloudflareImageMobileWp(imageId)  // Mobile-optimized
+    getCloudflareImageBiggest(imageId)   // Largest size
+    ```
+    
+    Variants include automatic format optimization (WebP/AVIF) and quality adjustment.
+  </Tab>
+</Tabs>
+
+## Build Configuration
+
+Key build flags in `next.config.mjs` for optimized development:
+
+```js next.config.mjs
+{
+  eslint: {
+    ignoreDuringBuilds: true  // Fast builds during development
+  },
+  typescript: {
+    ignoreBuildErrors: true   // Flexible type checking
+  },
+  images: {
+    unoptimized: true         // External CDN handles optimization
+  },
+  experimental: {
+    optimizePackageImports: ['framer-motion']  // Reduce bundle size
+  }
+}
+```
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Background Audio System" icon="music">
+    Auto-playing prayer audio with fade controls and user consent management
+  </Card>
+  
+  <Card title="Responsive Navigation" icon="bars">
+    Desktop tubelight navbar with mobile floating menu button
+  </Card>
+  
+  <Card title="Media Galleries" icon="images">
+    Image carousels and video players with custom controls
+  </Card>
+  
+  <Card title="Event Registration" icon="clipboard">
+    Multi-step forms with Supabase backend integration
+  </Card>
+  
+  <Card title="Interactive Timeline" icon="timeline">
+    Event schedule with mobile and desktop variants
+  </Card>
+  
+  <Card title="Scroll Animations" icon="arrow-down">
+    Intersection observer-based reveals and GSAP animations
+  </Card>
+</CardGroup>
+
+## Development Commands
+
+```bash
+# Start development server
+npm run dev
+
+# Production build
+npm run build
+
+# Start production server
+npm start
+
+# Run linting
+npm run lint
+```
+
+<Note>
+  This project was originally built with v0.app and synced to the repository.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Structure" href="/architecture/component-structure">
+    Explore the atomic design pattern implementation
+  </Card>
+  
+  <Card title="State Management" href="/architecture/state-management">
+    Learn about Context API and custom hooks
+  </Card>
+  
+  <Card title="Styling System" href="/architecture/styling-system">
+    Understand the Tailwind configuration and CSS variables
+  </Card>
+  
+  <Card title="Getting Started" href="/getting-started">
+    Set up your development environment
+  </Card>
+</CardGroup>

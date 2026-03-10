@@ -1,0 +1,672 @@
+---
+title: "Installation"
+description: "Complete environment setup guide with all required environment variables for the NJ Rajat Mahotsav platform"
+---
+
+# Installation Guide
+
+This guide covers the complete installation process for the NJ Rajat Mahotsav event platform, including all environment variables, database setup, and third-party integrations.
+
+<Note>
+  If you just want to get started quickly, check out the [Quickstart Guide](/quickstart) instead. This guide is for production-ready setup.
+</Note>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+<CardGroup cols={2}>
+  <Card title="Node.js 18+" icon="node-js">
+    Download from [nodejs.org](https://nodejs.org)
+  </Card>
+  <Card title="npm" icon="npm">
+    Comes bundled with Node.js
+  </Card>
+  <Card title="Git" icon="git">
+    For version control and deployment
+  </Card>
+  <Card title="Supabase Account" icon="database">
+    Free tier available at [supabase.com](https://supabase.com)
+  </Card>
+  <Card title="Cloudflare Account" icon="cloud">
+    For R2 storage and Images CDN
+  </Card>
+  <Card title="Google Cloud Console" icon="google">
+    For OAuth authentication (admin only)
+  </Card>
+</CardGroup>
+
+## Step 1: Clone and Install
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/vijaykpatel/Rajat-Mahotsav-Website.git
+    cd Rajat-Mahotsav-Website
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+
+    This installs all packages defined in `package.json`, including:
+    - Next.js 15.5.7
+    - React 18.2.0
+    - TypeScript 5
+    - Supabase client libraries
+    - Cloudflare AWS SDK for R2
+    - UI libraries (Radix UI, shadcn/ui)
+    - Animation libraries (Framer Motion, GSAP, Locomotive Scroll)
+  </Step>
+</Steps>
+
+## Step 2: Environment Variables
+
+Create a `.env.local` file in your project root with all required environment variables.
+
+<CodeGroup>
+```bash .env.local (Complete)
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Cloudflare R2 Configuration
+R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
+R2_BUCKET_NAME=your-bucket-name
+R2_BUCKET_PREFIX=uploads/
+```
+
+```bash .env.local (Minimal - For Quick Start)
+# Minimal config for local development
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+```
+</CodeGroup>
+
+### Environment Variable Reference
+
+<AccordionGroup>
+  <Accordion title="Supabase Variables (Required)" icon="database">
+    These variables are required for the application to function:
+
+    | Variable | Description | Where to find |
+    |----------|-------------|---------------|
+    | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Supabase Dashboard → Settings → API → Project URL |
+    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous public key | Supabase Dashboard → Settings → API → Project API keys → anon public |
+
+    <Note>
+      The client supports both `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for backward compatibility.
+    </Note>
+
+    **Usage in code:**
+
+    ```typescript utils/supabase/client.ts
+    import { createBrowserClient } from "@supabase/ssr"
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"
+    const supabaseKey = 
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+      "placeholder-key-for-build"
+
+    export const supabase = createBrowserClient(supabaseUrl, supabaseKey)
+    ```
+  </Accordion>
+
+  <Accordion title="Cloudflare R2 Variables (Optional)" icon="cloud">
+    These variables are required for file uploads (community seva, spiritual seva):
+
+    | Variable | Description | Where to find |
+    |----------|-------------|---------------|
+    | `R2_ENDPOINT` | R2 storage endpoint URL | Cloudflare Dashboard → R2 → Settings → S3 API endpoint |
+    | `R2_ACCESS_KEY_ID` | R2 API access key ID | Cloudflare Dashboard → R2 → Manage R2 API Tokens |
+    | `R2_SECRET_ACCESS_KEY` | R2 API secret access key | Generated when creating R2 API token |
+    | `R2_BUCKET_NAME` | Name of your R2 bucket | The bucket you created in Cloudflare R2 |
+    | `R2_BUCKET_PREFIX` | Prefix for uploaded files | Default: `uploads/` (customizable) |
+
+    <Warning>
+      R2 credentials are server-side only and should **never** be exposed to the client. They are used in API routes only.
+    </Warning>
+
+    **Usage in code:**
+
+    ```typescript app/api/generate-upload-ursl.ts
+    import { S3Client } from "@aws-sdk/client-s3"
+
+    const s3Client = new S3Client({
+      region: "auto",
+      endpoint: process.env.R2_ENDPOINT as string,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
+      },
+    })
+    ```
+
+    <Tip>
+      The application will run without R2 configuration, but file upload features will not work.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Cloudflare Images Configuration" icon="image">
+    Cloudflare Images is used for optimized image delivery with responsive variants.
+
+    The configuration is hardcoded in `lib/cdn-assets.ts`:
+
+    ```typescript lib/cdn-assets.ts
+    const CDN_BASE_URL = 'https://cdn.njrajatmahotsav.com'
+    const CLOUDFLARE_IMAGES_BASE = 'https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/'
+
+    export const getCloudflareImage = (imageId: string) => 
+      `${CLOUDFLARE_IMAGES_BASE}${imageId}/bigger?format=auto&quality=90`
+    
+    export const getCloudflareImageMobileWp = (imageId: string) => 
+      `${CLOUDFLARE_IMAGES_BASE}${imageId}/mobileWP?format=auto&quality=90`
+    
+    export const getCloudflareImageBiggest = (imageId: string) => 
+      `${CLOUDFLARE_IMAGES_BASE}${imageId}/biggest?format=auto&quality=100`
+    ```
+
+    To use your own Cloudflare Images account:
+    1. Update `CLOUDFLARE_IMAGES_BASE` with your account hash
+    2. Update `CDN_BASE_URL` with your R2 public URL or custom domain
+    3. Configure image variants in Cloudflare Dashboard: `bigger`, `mobileWP`, `biggest`
+  </Accordion>
+</AccordionGroup>
+
+## Step 3: Supabase Setup
+
+<Steps>
+  <Step title="Create a Supabase project">
+    1. Go to [Supabase Dashboard](https://app.supabase.com)
+    2. Click **New Project**
+    3. Choose your organization
+    4. Enter project details:
+       - **Name**: NJ Rajat Mahotsav
+       - **Database Password**: Generate a strong password
+       - **Region**: Choose the closest to your users
+    5. Click **Create new project**
+
+    <Note>
+      Project creation takes 2-3 minutes. You'll receive an email when it's ready.
+    </Note>
+  </Step>
+
+  <Step title="Create the registrations table">
+    Navigate to the SQL Editor in your Supabase dashboard and run:
+
+    ```sql
+    CREATE TABLE registrations (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      first_name TEXT NOT NULL,
+      middle_name TEXT,
+      last_name TEXT NOT NULL,
+      age INTEGER NOT NULL CHECK (age >= 1 AND age <= 99),
+      ghaam TEXT NOT NULL,
+      country TEXT NOT NULL,
+      mandal TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone_country_code TEXT NOT NULL,
+      mobile_number TEXT NOT NULL,
+      arrival_date TEXT NOT NULL,
+      departure_date TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    );
+
+    -- Create indexes for better query performance
+    CREATE INDEX idx_registrations_email ON registrations(email);
+    CREATE INDEX idx_registrations_country ON registrations(country);
+    CREATE INDEX idx_registrations_mandal ON registrations(mandal);
+    CREATE INDEX idx_registrations_created_at ON registrations(created_at);
+    ```
+
+    <Tip>
+      You can find migration files in the `docs/migrations/` directory of the source code.
+    </Tip>
+  </Step>
+
+  <Step title="Configure Row Level Security (RLS)">
+    Enable RLS to protect your data:
+
+    ```sql
+    -- Enable Row Level Security
+    ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
+
+    -- Allow public inserts (for registration form)
+    CREATE POLICY "Allow public inserts" ON registrations
+      FOR INSERT TO anon
+      WITH CHECK (true);
+
+    -- Allow authenticated users to read (for admin dashboard)
+    CREATE POLICY "Allow authenticated reads" ON registrations
+      FOR SELECT TO authenticated
+      USING (true);
+
+    -- Allow authenticated users to update
+    CREATE POLICY "Allow authenticated updates" ON registrations
+      FOR UPDATE TO authenticated
+      USING (true);
+    ```
+
+    <Warning>
+      These are basic RLS policies. For production, you should restrict read/update access to specific admin email domains. See the source code's `lib/admin-auth.ts` for domain validation logic.
+    </Warning>
+  </Step>
+
+  <Step title="Set up Google OAuth (for admin dashboard)">
+    The admin dashboard requires Google OAuth authentication. Follow these steps:
+
+    1. **Create Google OAuth credentials:**
+       - Go to [Google Cloud Console](https://console.cloud.google.com)
+       - Create a new project or select existing
+       - Navigate to **APIs & Services** → **Credentials**
+       - Click **Create Credentials** → **OAuth client ID**
+       - Choose **Web application**
+       - Add authorized redirect URIs:
+         - `http://localhost:3000/auth/callback` (development)
+         - `https://your-domain.com/auth/callback` (production)
+         - `https://your-project.supabase.co/auth/v1/callback` (Supabase)
+
+    2. **Configure Supabase:**
+       - In Supabase Dashboard, go to **Authentication** → **Providers**
+       - Enable **Google**
+       - Paste your Google Client ID and Client Secret
+       - Save
+
+    3. **Add redirect URLs to Supabase:**
+       - Go to **Authentication** → **URL Configuration**
+       - Add your callback URLs:
+         - `http://localhost:3000/auth/callback`
+         - `https://your-domain.com/auth/callback`
+
+    <Tip>
+      See `docs/SUPABASE_GOOGLE_OAUTH_SETUP.md` in the source code for detailed OAuth configuration instructions.
+    </Tip>
+  </Step>
+</Steps>
+
+## Step 4: Cloudflare R2 Setup (Optional)
+
+<Steps>
+  <Step title="Create an R2 bucket">
+    1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com)
+    2. Navigate to **R2** → **Overview**
+    3. Click **Create bucket**
+    4. Enter a bucket name (e.g., `rajat-mahotsav-uploads`)
+    5. Choose a location hint (closest to your users)
+    6. Click **Create bucket**
+  </Step>
+
+  <Step title="Generate R2 API tokens">
+    1. In Cloudflare Dashboard, go to **R2** → **Overview**
+    2. Click **Manage R2 API Tokens**
+    3. Click **Create API token**
+    4. Configure permissions:
+       - **Token name**: NJ Rajat Mahotsav API
+       - **Permissions**: Object Read & Write
+       - **TTL**: No expiry (or set according to your policy)
+    5. Click **Create API token**
+    6. Copy the following values:
+       - Access Key ID (for `R2_ACCESS_KEY_ID`)
+       - Secret Access Key (for `R2_SECRET_ACCESS_KEY`)
+       - Endpoint URL (for `R2_ENDPOINT`)
+
+    <Warning>
+      Save the Secret Access Key immediately - you won't be able to view it again.
+    </Warning>
+  </Step>
+
+  <Step title="Configure CORS (if needed)">
+    If you're uploading files directly from the browser, configure CORS:
+
+    1. Select your bucket
+    2. Go to **Settings** → **CORS Policy**
+    3. Add a CORS rule:
+
+    ```json
+    [
+      {
+        "AllowedOrigins": [
+          "http://localhost:3000",
+          "https://your-domain.com"
+        ],
+        "AllowedMethods": ["GET", "PUT", "POST"],
+        "AllowedHeaders": ["*"],
+        "MaxAgeSeconds": 3000
+      }
+    ]
+    ```
+  </Step>
+</Steps>
+
+## Step 5: Run the Application
+
+<Tabs>
+  <Tab title="Development">
+    Start the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    The application will be available at `http://localhost:3000`.
+
+    <Note>
+      The dev server supports hot module replacement (HMR) - your changes will appear instantly.
+    </Note>
+  </Tab>
+
+  <Tab title="Production">
+    Build and start the production server:
+
+    ```bash
+    # Build the application
+    npm run build
+
+    # Start the production server
+    npm start
+    ```
+
+    The production build will be optimized and minified for best performance.
+  </Tab>
+</Tabs>
+
+## Step 6: Verify Installation
+
+<Steps>
+  <Step title="Test the homepage">
+    Navigate to `http://localhost:3000` and verify:
+    - Page loads without errors
+    - Images display correctly via Cloudflare CDN
+    - Animations work smoothly
+    - Navigation is functional
+  </Step>
+
+  <Step title="Test event registration">
+    1. Go to `http://localhost:3000/registration`
+    2. Fill out the registration form with test data:
+       - **Name**: Test User
+       - **Age**: 25
+       - **Ghaam**: TestGhaam
+       - **Country**: USA
+       - **Mandal**: New Jersey
+       - **Email**: test@example.com
+       - **Phone**: +1 234-567-8900
+       - **Dates**: July 27 - August 2, 2026
+    3. Submit the form
+    4. Verify success message appears
+    5. Check Supabase Dashboard → Table Editor → registrations for the new record
+  </Step>
+
+  <Step title="Test admin dashboard (if OAuth configured)">
+    1. Navigate to `http://localhost:3000/admin/registrations`
+    2. Click **Sign in with Google**
+    3. Complete Google OAuth flow
+    4. Verify you can see:
+       - Dashboard statistics
+       - Registration table with data
+       - Charts and visualizations
+       - CSV export functionality
+
+    <Note>
+      Admin access is restricted by email domain. Update `lib/admin-auth.ts` to allow your email domain.
+    </Note>
+  </Step>
+</Steps>
+
+## Configuration Files
+
+Key configuration files you may need to modify:
+
+<AccordionGroup>
+  <Accordion title="next.config.mjs" icon="gear">
+    Next.js configuration with custom webpack setup:
+
+    ```javascript next.config.mjs
+    const nextConfig = {
+      eslint: {
+        ignoreDuringBuilds: true,  // Disable ESLint during builds
+      },
+      typescript: {
+        ignoreBuildErrors: true,    // Disable TypeScript errors during builds
+      },
+      images: {
+        unoptimized: true           // Use Cloudflare Images instead of Next.js Image Optimization
+      },
+      experimental: {
+        optimizePackageImports: ['framer-motion'],  // Optimize Framer Motion imports
+      },
+      // Security headers
+      async headers() {
+        return [
+          {
+            source: '/(.*)',
+            headers: [
+              { key: 'X-Frame-Options', value: 'DENY' },
+              { key: 'X-Content-Type-Options', value: 'nosniff' },
+              { key: 'X-XSS-Protection', value: '1; mode=block' },
+              { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+              { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+            ],
+          },
+        ]
+      },
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="tailwind.config.js" icon="paint-brush">
+    Tailwind CSS configuration with custom theme:
+
+    - Custom color palette with preset colors
+    - Custom font families (Figtree, Instrument Serif, Gujarati fonts)
+    - Custom spacing variables
+    - Extended animations
+
+    Located at: `tailwind.config.js`
+  </Accordion>
+
+  <Accordion title="middleware.ts" icon="shield">
+    Next.js middleware for session management:
+
+    ```typescript middleware.ts
+    import { createServerClient } from '@supabase/ssr'
+    import { NextResponse, type NextRequest } from 'next/server'
+
+    export async function middleware(request: NextRequest) {
+      // Session refresh logic for authenticated routes
+    }
+
+    export const config = {
+      matcher: [
+        '/admin/:path*',  // Protect admin routes
+      ],
+    }
+    ```
+
+    This middleware ensures Supabase sessions are refreshed on each request.
+  </Accordion>
+
+  <Accordion title="lib/admin-auth.ts" icon="lock">
+    Admin domain validation:
+
+    ```typescript
+    // Configure allowed admin email domains
+    const ALLOWED_DOMAIN = '@yourchurch.org'
+
+    export function isAdminUser(email: string): boolean {
+      return email.endsWith(ALLOWED_DOMAIN)
+    }
+    ```
+
+    Update `ALLOWED_DOMAIN` to match your organization's email domain.
+  </Accordion>
+</AccordionGroup>
+
+## Deployment
+
+The platform is optimized for deployment on Vercel:
+
+<Steps>
+  <Step title="Push to GitHub">
+    Commit and push your code to a GitHub repository:
+
+    ```bash
+    git add .
+    git commit -m "Initial setup"
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Deploy to Vercel">
+    1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+    2. Click **Add New** → **Project**
+    3. Import your GitHub repository
+    4. Configure environment variables:
+       - Add all variables from your `.env.local`
+       - Mark sensitive variables as "Sensitive" to hide them
+    5. Click **Deploy**
+
+    <Tip>
+      Vercel automatically detects Next.js and uses optimal build settings.
+    </Tip>
+  </Step>
+
+  <Step title="Configure custom domain (optional)">
+    1. In Vercel project settings, go to **Domains**
+    2. Add your custom domain
+    3. Update DNS records as instructed
+    4. Update Google OAuth redirect URLs
+    5. Update Supabase redirect URLs
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Supabase connection issues" icon="database">
+    **Problem**: "Supabase is not configured" error
+
+    **Solutions**:
+    1. Verify `.env.local` exists in project root
+    2. Restart the dev server after adding/changing environment variables
+    3. Check that `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are correct
+    4. Ensure your Supabase project is active (not paused)
+    5. Check browser console for specific error messages
+  </Accordion>
+
+  <Accordion title="OAuth redirect_uri_mismatch" icon="shield">
+    **Problem**: "Error 400: redirect_uri_mismatch" during Google OAuth
+
+    **Solutions**:
+    1. Verify callback URL in Google Cloud Console:
+       - Must include `http://localhost:3000/auth/callback` for local
+       - Must include your Supabase callback URL
+    2. Check Supabase redirect URL allowlist:
+       - Go to Authentication → URL Configuration
+       - Add `http://localhost:3000/auth/callback`
+    3. Ensure no trailing slashes in URLs
+    4. Wait a few minutes after updating Google OAuth settings (changes can take time to propagate)
+  </Accordion>
+
+  <Accordion title="R2 upload failures" icon="cloud">
+    **Problem**: File uploads fail with S3 errors
+
+    **Solutions**:
+    1. Verify R2 credentials in `.env.local`:
+       - `R2_ENDPOINT` should include `https://`
+       - `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` must be correct
+    2. Check bucket permissions:
+       - API token must have "Object Read & Write" permissions
+    3. Verify bucket name matches `R2_BUCKET_NAME`
+    4. Check CORS configuration if uploading from browser
+    5. Check Cloudflare R2 dashboard for error logs
+  </Accordion>
+
+  <Accordion title="Images not loading" icon="image">
+    **Problem**: Images show broken or don't load
+
+    **Solutions**:
+    1. Verify Cloudflare Images configuration in `lib/cdn-assets.ts`
+    2. Check that image IDs are correct
+    3. Ensure images are uploaded to your Cloudflare Images account
+    4. Test image URLs directly in browser
+    5. Check browser console for CORS errors
+    6. Verify image variants are configured: `bigger`, `mobileWP`, `biggest`
+  </Accordion>
+
+  <Accordion title="Build errors" icon="hammer">
+    **Problem**: `npm run build` fails
+
+    **Solutions**:
+    1. Clear Next.js cache:
+       ```bash
+       rm -rf .next
+       npm run build
+       ```
+    2. Check Node.js version: `node --version` (must be 18+)
+    3. Delete and reinstall dependencies:
+       ```bash
+       rm -rf node_modules package-lock.json
+       npm install
+       ```
+    4. Check for TypeScript errors (even though builds ignore them)
+    5. Verify all environment variables are set
+  </Accordion>
+
+  <Accordion title="Session not persisting" icon="cookie">
+    **Problem**: Users logged out after page refresh
+
+    **Solutions**:
+    1. Check that middleware.ts is running:
+       - Verify matcher patterns include your protected routes
+    2. Verify cookies are not blocked:
+       - Check browser privacy settings
+       - Ensure third-party cookies are allowed for local development
+    3. Check Supabase session duration settings
+    4. Inspect cookies in browser DevTools:
+       - Look for `sb-*-auth-token` cookies
+    5. Verify middleware is refreshing sessions correctly
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Architecture Overview"
+    icon="sitemap"
+    href="/architecture/overview"
+  >
+    Learn about the application architecture and design patterns
+  </Card>
+  <Card
+    title="Component Structure"
+    icon="cube"
+    href="/architecture/component-structure"
+  >
+    Understand atomic design and component organization
+  </Card>
+  <Card
+    title="Supabase Integration"
+    icon="database"
+    href="/integrations/supabase"
+  >
+    Deep dive into Supabase setup and Row Level Security
+  </Card>
+  <Card
+    title="Cloudflare CDN"
+    icon="cloud"
+    href="/integrations/cloudflare-cdn"
+  >
+    Configure R2 storage and image optimization
+  </Card>
+</CardGroup>
+
+<Note>
+  **Production Checklist**: Before deploying to production, review the security section in the README and update admin domain restrictions in `lib/admin-auth.ts`.
+</Note>

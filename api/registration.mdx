@@ -1,0 +1,368 @@
+---
+title: 'Registration API'
+description: 'Event registration endpoints for NJ Rajat Mahotsav'
+---
+
+## Overview
+
+The Registration API handles event attendee registration for the Shree Ghanshyam Maharaj Rajat Pratishtha Mahotsav (July 27 - August 2, 2026). Registrations are submitted directly to Supabase from the client side with upsert logic based on unique identifiers.
+
+## Client-Side Registration
+
+Registrations are handled client-side using the Supabase JavaScript client. The application performs an upsert operation to update existing records or insert new ones.
+
+### Registration Schema
+
+<ParamField body="first_name" type="string" required>
+  First name (letters only)
+</ParamField>
+
+<ParamField body="middle_name" type="string">
+  Middle name (letters only, optional)
+</ParamField>
+
+<ParamField body="last_name" type="string" required>
+  Last name (letters only)
+</ParamField>
+
+<ParamField body="age" type="integer" required>
+  Age between 1 and 99
+</ParamField>
+
+<ParamField body="ghaam" type="string" required>
+  Ghaam name (letters only)
+</ParamField>
+
+<ParamField body="country" type="string" required>
+  Country of residence
+</ParamField>
+
+<ParamField body="mandal" type="string" required>
+  Mandal/region name
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Valid email address
+</ParamField>
+
+<ParamField body="phone_country_code" type="string" required>
+  International phone country code (e.g., "+1")
+</ParamField>
+
+<ParamField body="mobile_number" type="string" required>
+  National phone number (digits only, no country code)
+</ParamField>
+
+<ParamField body="arrival_date" type="string" required>
+  Arrival date in ISO format (YYYY-MM-DD), between 2026-07-23 and 2026-08-08
+</ParamField>
+
+<ParamField body="departure_date" type="string" required>
+  Departure date in ISO format (YYYY-MM-DD), must be >= arrival_date
+</ParamField>
+
+## Registration Logic
+
+The registration form implements upsert logic based on a unique combination of fields:
+
+**Unique Identifier:** `first_name` + `age` + `email` + `mobile_number`
+
+<CodeGroup>
+
+```typescript app/registration/page.tsx
+const dbData = {
+  first_name: data.firstName,
+  middle_name: data.middleName || null,
+  last_name: data.lastName,
+  age: parseInt(data.age),
+  ghaam: data.ghaam,
+  country: data.country,
+  mandal: data.mandal,
+  email: data.email,
+  phone_country_code: data.phoneCountryCode,
+  mobile_number: nationalNumber,
+  arrival_date: data.dateRange.start?.toString(),
+  departure_date: data.dateRange.end?.toString()
+}
+
+// Check if record exists
+const { data: existingRecord } = await supabase
+  .from('registrations')
+  .select('id')
+  .eq('first_name', dbData.first_name)
+  .eq('age', dbData.age)
+  .eq('email', dbData.email)
+  .eq('mobile_number', dbData.mobile_number)
+  .maybeSingle()
+
+if (existingRecord) {
+  // Update existing record
+  const { error } = await supabase
+    .from('registrations')
+    .update(dbData)
+    .eq('id', existingRecord.id)
+} else {
+  // Insert new record
+  const { error } = await supabase
+    .from('registrations')
+    .insert([dbData])
+}
+```
+
+</CodeGroup>
+
+<Warning>
+Registering with the same combination of `first_name`, `age`, `email`, and `mobile_number` will overwrite any previous registration data.
+</Warning>
+
+## Country and Mandal Mapping
+
+Certain countries have fixed mandals, while others require user selection:
+
+### Fixed Mandal Countries
+
+- **India**: Maninagar
+- **Australia**: Perth
+- **Canada**: Toronto
+- **Kenya**: Nairobi
+
+### Selectable Mandals
+
+**England:**
+- Bolton
+- London
+
+**USA:**
+- Alabama
+- California
+- Chicago
+- Delaware
+- Georgia
+- Horseheads
+- Kentucky
+- New Jersey
+- Ocala
+- Ohio
+- Seattle
+- Tennessee
+- Virginia
+
+## Phone Number Handling
+
+Phone numbers are processed using `react-phone-number-input` library:
+
+1. Full international number is validated on client
+2. Country code is extracted and stored in `phone_country_code`
+3. National number (without country code) is stored in `mobile_number`
+
+<CodeGroup>
+
+```typescript Phone Number Processing
+let nationalNumber = data.phone
+if (data.phone && isValidPhoneNumber(data.phone)) {
+  try {
+    const parsed = parsePhoneNumber(data.phone)
+    if (parsed) {
+      nationalNumber = parsed.nationalNumber
+      setValue("phoneCountryCode", `+${parsed.countryCallingCode}`)
+    }
+  } catch {
+    // Use as-is if parsing fails
+  }
+}
+```
+
+</CodeGroup>
+
+## Validation Rules
+
+### Name Fields
+- Must contain only letters (A-Z, a-z)
+- First and last names are required
+- Middle name is optional
+
+### Age
+- Must be between 1 and 99
+- Stored as integer
+
+### Email
+- Must be valid email format
+- Validated using custom email schema from `@/lib/email-validation`
+
+### Phone Number
+- Must be valid international phone number
+- Validated using `isValidPhoneNumber()` from react-phone-number-input
+
+### Dates
+- Both arrival and departure dates are required
+- Must be within range: 2026-07-23 to 2026-08-08
+- Departure date must be on or after arrival date
+
+## Export CSV (Admin Only)
+
+<Warning>
+This endpoint requires admin authentication with `@nj.sgadi.us` domain.
+</Warning>
+
+### Endpoint
+
+```
+GET /api/registrations/export
+```
+
+### Description
+
+Streams all registration data as a CSV file using keyset pagination to avoid memory issues. The CSV includes a UTF-8 BOM for proper encoding in Excel.
+
+### Response
+
+**Content-Type:** `text/csv; charset=utf-8`
+
+**File Name:** `registrations-{timestamp}.csv`
+
+**Columns:**
+- id
+- first_name
+- middle_name
+- last_name
+- email
+- mobile_number
+- phone_country_code
+- country
+- ghaam
+- mandal
+- arrival_date
+- departure_date
+- age
+
+### Implementation Details
+
+<CodeGroup>
+
+```typescript app/api/registrations/export/route.ts
+const CHUNK_SIZE = 500
+
+const REGISTRATION_COLUMNS = [
+  "id",
+  "first_name",
+  "middle_name",
+  "last_name",
+  "email",
+  "mobile_number",
+  "phone_country_code",
+  "country",
+  "ghaam",
+  "mandal",
+  "arrival_date",
+  "departure_date",
+  "age",
+] as const
+
+export async function GET() {
+  // Authentication check...
+  
+  const filename = `registrations-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`
+  
+  const stream = new ReadableStream({
+    async start(controller) {
+      // UTF-8 BOM for Excel compatibility
+      controller.enqueue(encoder.encode("\uFEFF"))
+      controller.enqueue(encoder.encode(headerLine))
+
+      let lastId: number | null = null
+      let hasMore = true
+
+      while (hasMore) {
+        let query = supabase
+          .from("registrations")
+          .select(REGISTRATION_COLUMNS.join(", "))
+          .order("id", { ascending: true })
+          .limit(CHUNK_SIZE)
+
+        if (lastId != null) {
+          query = query.gt("id", lastId)
+        }
+
+        const { data, error } = await query
+        
+        // Stream chunk and update cursor
+        const csvChunk = rows.map(rowToCsvLine).join("\n")
+        controller.enqueue(encoder.encode(csvChunk))
+        
+        lastId = rows[rows.length - 1].id
+        hasMore = rows.length === CHUNK_SIZE
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(stream, { headers })
+}
+```
+
+</CodeGroup>
+
+### CSV Field Escaping
+
+Fields are escaped per RFC 4180:
+- Wrap in quotes if contains comma, newline, or double quote
+- Escape quotes by doubling them
+
+### Error Responses
+
+<ResponseField name="error" type="string">
+  Error type identifier
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable error message
+</ResponseField>
+
+<ResponseField name="details" type="string">
+  Technical error details (optional)
+</ResponseField>
+
+<CodeGroup>
+
+```json 401 Unauthorized
+{
+  "error": "Unauthorized",
+  "message": "Sign in required"
+}
+```
+
+```json 403 Forbidden
+{
+  "error": "Forbidden",
+  "message": "Admin domain (@nj.sgadi.us) required"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Supabase not configured",
+  "details": "Missing environment variables"
+}
+```
+
+</CodeGroup>
+
+## Best Practices
+
+### For Administrators
+
+1. **Export frequently** - Use the CSV export for backups and analysis
+2. **Monitor unique constraints** - Watch for duplicate registrations based on the 4-field unique key
+3. **Date range validation** - Ensure dates fall within event window
+
+### For Integration
+
+1. **Use Supabase client** - Direct database operations for optimal performance
+2. **Implement retry logic** - Handle network failures gracefully
+3. **Validate on client** - Use Zod schemas for form validation before submission
+4. **Parse phone numbers** - Always extract country code and national number separately
+
+<Note>
+Registration submissions do not use a traditional REST API endpoint. Instead, they leverage Supabase's Row Level Security (RLS) policies for direct database access from the client.
+</Note>

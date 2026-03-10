@@ -1,0 +1,367 @@
+---
+title: Cloudflare CDN Integration
+description: Asset delivery with Cloudflare R2 storage and Cloudflare Images for optimized performance
+---
+
+## Overview
+
+The platform uses Cloudflare services for fast, global asset delivery:
+
+- **Cloudflare R2** - Object storage for static assets (logos, icons, audio files)
+- **Cloudflare Images** - Dynamic image optimization with responsive variants
+- **Global CDN** - Edge caching for low-latency delivery worldwide
+
+## Configuration
+
+### CDN Base URLs
+
+All CDN assets are served from:
+
+```typescript
+const CDN_BASE_URL = 'https://cdn.njrajatmahotsav.com'
+const CLOUDFLARE_IMAGES_BASE = 'https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/'
+```
+
+### Environment Variables (Optional)
+
+For R2 uploads via server-side API routes:
+
+```bash
+R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=your-access-key
+R2_SECRET_ACCESS_KEY=your-secret-key
+R2_BUCKET_NAME=your-bucket-name
+R2_BUCKET_PREFIX=uploads/
+```
+
+<Note>
+These variables are only needed for server-side upload functionality. Static asset serving works without them.
+</Note>
+
+## Cloudflare R2 Assets
+
+### Static Asset Catalog
+
+Pre-uploaded assets are defined in `lib/cdn-assets.ts`:
+
+<CodeGroup>
+```typescript lib/cdn-assets.ts
+const CDN_BASE_URL = 'https://cdn.njrajatmahotsav.com'
+
+export const CDN_ASSETS = {
+  // Logos
+  mainLogo: `${CDN_BASE_URL}/main_logo.png`,
+  mainLogoNoText: `${CDN_BASE_URL}/main_logo_no_text.png`,
+  maningarLogo: `${CDN_BASE_URL}/maninagar_logo.png`,
+  whiteLogo: `${CDN_BASE_URL}/white_logo.png`,
+  linenLogo: `${CDN_BASE_URL}/LinenLogo.png`,
+  
+  // Icons
+  instagramIcon: `${CDN_BASE_URL}/Instagram_Glyph_Gradient.png`,
+  youtubeIcon: `${CDN_BASE_URL}/youtube_red_icon.png`,
+  tilak: `${CDN_BASE_URL}/Tilak.png`,
+}
+
+export const getR2Image = (filename: string) => 
+  `${CDN_BASE_URL}${filename}`
+```
+
+```typescript Usage Example
+import { CDN_ASSETS, getR2Image } from '@/lib/cdn-assets'
+
+export function Header() {
+  return (
+    <header>
+      <img 
+        src={CDN_ASSETS.mainLogo} 
+        alt="NJ Rajat Mahotsav Logo" 
+        width={200}
+        height={80}
+      />
+      {/* Or use the helper for dynamic paths */}
+      <img 
+        src={getR2Image('/custom-asset.png')} 
+        alt="Custom asset"
+      />
+    </header>
+  )
+}
+```
+</CodeGroup>
+
+### Dynamic R2 Assets
+
+For assets not in the catalog, use the `getR2Image` helper:
+
+```typescript
+import { getR2Image } from '@/lib/cdn-assets'
+
+const audioUrl = getR2Image('/audio/background-music.mp3')
+const pdfUrl = getR2Image('/documents/event-schedule.pdf')
+```
+
+## Cloudflare Images
+
+### Image Variants
+
+Cloudflare Images supports three optimized variants:
+
+| Variant | Width | Quality | Use Case |
+|---------|-------|---------|----------|
+| `bigger` | 1200px | 90% | Desktop hero images, galleries |
+| `mobileWP` | 800px | 90% | Mobile hero images, cards |
+| `biggest` | 2400px | 100% | Full-screen modals, downloads |
+
+### Helper Functions
+
+<CodeGroup>
+```typescript lib/cdn-assets.ts
+const CLOUDFLARE_IMAGES_BASE = 'https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/'
+
+export const getCloudflareImage = (imageId: string) => 
+  `${CLOUDFLARE_IMAGES_BASE}${imageId}/bigger?format=auto&quality=90`
+
+export const getCloudflareImageMobileWp = (imageId: string) => 
+  `${CLOUDFLARE_IMAGES_BASE}${imageId}/mobileWP?format=auto&quality=90`
+
+export const getCloudflareImageBiggest = (imageId: string) => 
+  `${CLOUDFLARE_IMAGES_BASE}${imageId}/biggest?format=auto&quality=100`
+```
+
+```typescript Usage Example
+import { getCloudflareImage, getCloudflareImageMobileWp } from '@/lib/cdn-assets'
+import Image from 'next/image'
+
+export function HeroImage() {
+  const imageId = 'abc-123-def-456'
+
+  return (
+    <picture>
+      {/* Mobile variant */}
+      <source 
+        media="(max-width: 768px)" 
+        srcSet={getCloudflareImageMobileWp(imageId)} 
+      />
+      {/* Desktop variant */}
+      <img 
+        src={getCloudflareImage(imageId)} 
+        alt="Event hero image"
+        width={1200}
+        height={600}
+      />
+    </picture>
+  )
+}
+```
+</CodeGroup>
+
+### Responsive Image Patterns
+
+#### Standard Image with Variants
+
+```typescript
+import { getCloudflareImage, getCloudflareImageMobileWp } from '@/lib/cdn-assets'
+
+const desktopSrc = getCloudflareImage('image-id-123')
+const mobileSrc = getCloudflareImageMobileWp('image-id-123')
+
+<picture>
+  <source media="(max-width: 768px)" srcSet={mobileSrc} />
+  <source media="(min-width: 769px)" srcSet={desktopSrc} />
+  <img src={desktopSrc} alt="Responsive image" loading="lazy" />
+</picture>
+```
+
+#### High-Resolution Modal Image
+
+```typescript
+import { getCloudflareImageBiggest } from '@/lib/cdn-assets'
+
+function ImageModal({ imageId }: { imageId: string }) {
+  return (
+    <div className="modal">
+      <img 
+        src={getCloudflareImageBiggest(imageId)} 
+        alt="Full resolution image"
+        className="max-w-full h-auto"
+      />
+    </div>
+  )
+}
+```
+
+#### Gallery Grid
+
+```typescript
+import { getCloudflareImage } from '@/lib/cdn-assets'
+
+const galleryImages = [
+  'id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'
+]
+
+export function ImageGallery() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {galleryImages.map((id) => (
+        <img
+          key={id}
+          src={getCloudflareImage(id)}
+          alt={`Gallery image ${id}`}
+          className="w-full h-auto rounded-lg"
+          loading="lazy"
+        />
+      ))}
+    </div>
+  )
+}
+```
+
+## Format Optimization
+
+All Cloudflare Images helpers use `format=auto`, which automatically serves:
+
+- **WebP** for modern browsers (Chrome, Edge, Firefox)
+- **AVIF** for supported browsers (Chrome 85+, Firefox 93+)
+- **JPEG/PNG** fallback for legacy browsers
+
+<Note>
+No code changes needed - format selection is automatic based on browser support.
+</Note>
+
+## Performance Best Practices
+
+<Steps>
+
+<Step title="Use Correct Variant">
+  Choose the appropriate variant for your use case:
+  - `bigger` (1200px) for desktop content
+  - `mobileWP` (800px) for mobile views
+  - `biggest` (2400px) only for full-screen/download scenarios
+</Step>
+
+<Step title="Lazy Load Images">
+  Add `loading="lazy"` to images below the fold:
+  ```html
+  <img src={getCloudflareImage(id)} loading="lazy" alt="..." />
+  ```
+</Step>
+
+<Step title="Specify Dimensions">
+  Always include `width` and `height` to prevent layout shift:
+  ```html
+  <img src={url} width={1200} height={600} alt="..." />
+  ```
+</Step>
+
+<Step title="Use Picture Element for Art Direction">
+  Serve different crops/variants based on viewport:
+  ```html
+  <picture>
+    <source media="(max-width: 768px)" srcSet={mobileSrc} />
+    <img src={desktopSrc} alt="..." />
+  </picture>
+  ```
+</Step>
+
+</Steps>
+
+## Migration Guide
+
+### From Local Images to Cloudflare Images
+
+<Steps>
+
+<Step title="Upload to Cloudflare Images">
+  1. Go to Cloudflare Dashboard → Images
+  2. Upload your image
+  3. Copy the image ID (e.g., `abc-123-def-456`)
+</Step>
+
+<Step title="Update Component">
+  ```diff
+  - import heroImage from '/public/images/hero.jpg'
+  + import { getCloudflareImage } from '@/lib/cdn-assets'
+  
+  export function Hero() {
+    return (
+  -   <img src={heroImage.src} alt="Hero" />
+  +   <img src={getCloudflareImage('abc-123-def-456')} alt="Hero" />
+    )
+  }
+  ```
+</Step>
+
+<Step title="Test Variants">
+  Verify image loads correctly on desktop and mobile viewports.
+</Step>
+
+</Steps>
+
+### From Local Static Assets to R2
+
+<Steps>
+
+<Step title="Upload to R2 Bucket">
+  Use the Cloudflare Dashboard or CLI to upload files to your R2 bucket.
+</Step>
+
+<Step title="Add to CDN Assets Catalog">
+  ```typescript
+  // lib/cdn-assets.ts
+  export const CDN_ASSETS = {
+    // ... existing assets
+    newAsset: `${CDN_BASE_URL}/path/to/new-asset.png`,
+  }
+  ```
+</Step>
+
+<Step title="Update References">
+  ```diff
+  - import logo from '/public/logo.png'
+  + import { CDN_ASSETS } from '@/lib/cdn-assets'
+  
+  - <img src={logo.src} alt="Logo" />
+  + <img src={CDN_ASSETS.newAsset} alt="Logo" />
+  ```
+</Step>
+
+</Steps>
+
+## Troubleshooting
+
+<Warning>
+**Image not loading?** Check these common issues:
+
+1. **Incorrect image ID** - Verify the ID from Cloudflare Dashboard
+2. **Variant not found** - Ensure the variant (`bigger`, `mobileWP`, `biggest`) exists
+3. **CORS errors** - Check Cloudflare Images CORS settings
+4. **404 errors** - Verify the R2 bucket is publicly accessible
+</Warning>
+
+### Debug Checklist
+
+```typescript
+// Test image URL directly in browser
+const testUrl = getCloudflareImage('your-image-id')
+console.log('Testing URL:', testUrl)
+// Visit URL in browser to check if it loads
+
+// Check if helpers are working
+import { getCloudflareImage } from '@/lib/cdn-assets'
+console.log(getCloudflareImage('test'))
+// Expected: https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/test/bigger?format=auto&quality=90
+```
+
+## Resources
+
+<Card title="Cloudflare R2 Docs" icon="cloud" href="https://developers.cloudflare.com/r2/">
+  Object storage documentation and API reference
+</Card>
+
+<Card title="Cloudflare Images Docs" icon="image" href="https://developers.cloudflare.com/images/">
+  Image optimization and delivery guide
+</Card>
+
+<Card title="Performance Best Practices" icon="bolt" href="https://developers.cloudflare.com/images/best-practices/">
+  Optimize image delivery for speed and Core Web Vitals
+</Card>

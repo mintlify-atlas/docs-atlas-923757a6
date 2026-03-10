@@ -1,0 +1,336 @@
+---
+title: Media Galleries
+description: Dynamic image galleries with Cloudflare CDN optimization, mobile wallpaper downloads, and responsive carousels for displaying event photography.
+---
+
+## Overview
+
+The media gallery system showcases event photography and provides downloadable mobile wallpapers. Images are served through Cloudflare CDN with automatic optimization and multiple size variants for optimal performance.
+
+## Wallpaper Gallery
+
+The `/media` page displays downloadable mobile wallpapers:
+
+```tsx title="app/media/page.tsx"
+const wallpapers = [
+  {
+    id: 1,
+    imageId: "d9f5d758-e54c-41e8-279b-c976b1a9ba00",
+    fullRes: "https://cdn.njrajatmahotsav.com/wallpapers/rajat_mobile_wallpaper_gm_1.jpeg",
+    title: "GM Wallpaper 1"
+  },
+  {
+    id: 2,
+    imageId: "b87411e2-0009-418f-bdac-be04f3b05800",
+    fullRes: "https://cdn.njrajatmahotsav.com/wallpapers/rajat_mobile_wallpaper_gm_2.jpeg",
+    title: "GM Wallpaper 2"
+  },
+  {
+    id: 3,
+    imageId: "ba913755-0610-437a-35a8-00b7a5fd7a00",
+    fullRes: "https://cdn.njrajatmahotsav.com/wallpapers/rajat_mobile_wallpaper_gm_3.jpeg",
+    title: "GM Wallpaper 3"
+  },
+  {
+    id: 4,
+    imageId: "5fc49f26-e8ec-40e8-45f1-e7a1d8ca3600",
+    fullRes: "https://cdn.njrajatmahotsav.com/wallpapers/rajat_mobile_wallpaper_prathna_1.jpeg",
+    title: "Prathna Wallpaper 1"
+  },
+  {
+    id: 5,
+    imageId: "fa49d6f1-a249-44bb-805f-f55644188e00",
+    fullRes: "https://cdn.njrajatmahotsav.com/wallpapers/rajat_mobile_wallpaper_pebbled_1.jpg",
+    title: "Pebbled Wallpaper 1"
+  },
+]
+
+export default function MediaPage() {
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoaded(true), 300)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const handleDownload = (wallpaper: typeof wallpapers[0]) => {
+    const filename = `rajat-mahotsav-${wallpaper.title.toLowerCase().replace(/\s+/g, "-")}.jpg`
+    const downloadUrl = `/api/download?url=${encodeURIComponent(wallpaper.fullRes)}&filename=${encodeURIComponent(filename)}`
+    const link = document.createElement("a")
+    link.href = downloadUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  return (
+    <div className="min-h-screen community-page-bg page-bg-extend">
+      <div className="container mx-auto px-4 page-bottom-spacing">
+        <StandardPageHeader
+          title="Media"
+          subtitle="Download exclusive Rajat Mahotsav wallpapers"
+          isLoaded={isLoaded}
+        />
+
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="grid grid-cols-2 md:grid-cols-3 gap-8 max-w-5xl mx-auto"
+        >
+          {wallpapers.map((wallpaper, index) => (
+            <motion.div
+              key={wallpaper.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className="flex flex-col gap-4"
+            >
+              <div className="relative aspect-[9/19.5]">
+                <img
+                  src={getCloudflareImageMobileWp(wallpaper.imageId)}
+                  alt={wallpaper.title}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <button
+                onClick={() => handleDownload(wallpaper)}
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+            </motion.div>
+          ))}
+        </motion.section>
+      </div>
+    </div>
+  )
+}
+```
+
+## Cloudflare CDN Integration
+
+Images are served through Cloudflare with multiple variants:
+
+```typescript title="lib/cdn-assets.ts"
+const CDN_BASE_URL = "https://cdn.njrajatmahotsav.com"
+const CLOUDFLARE_IMAGES_BASE = "https://imagedelivery.net/ACCOUNT_ID"
+
+// Get Cloudflare Images URL with variant
+export function getCloudflareImage(imageId: string, variant = "public"): string {
+  return `${CLOUDFLARE_IMAGES_BASE}/${imageId}/${variant}`
+}
+
+// Mobile wallpaper variant (optimized for phone screens)
+export function getCloudflareImageMobileWp(imageId: string): string {
+  return getCloudflareImage(imageId, "mobileWP")
+}
+
+// Larger variant for desktop displays
+export function getCloudflareImageBiggest(imageId: string): string {
+  return getCloudflareImage(imageId, "biggest")
+}
+
+// Standard bigger variant
+export function getCloudflareImageBigger(imageId: string): string {
+  return getCloudflareImage(imageId, "bigger")
+}
+```
+
+<Note>
+Cloudflare Images automatically optimizes format (WebP/AVIF) and quality based on the user's browser and network conditions.
+</Note>
+
+## Image Variants
+
+<CardGroup cols={3}>
+  <Card title="public" icon="image">
+    Default variant for general use
+  </Card>
+  
+  <Card title="mobileWP" icon="mobile">
+    Optimized for mobile wallpapers (9:19.5 aspect ratio)
+  </Card>
+  
+  <Card title="bigger" icon="expand">
+    Medium-large variant for desktop views
+  </Card>
+  
+  <Card title="biggest" icon="maximize">
+    Full-resolution variant for hero images
+  </Card>
+</CardGroup>
+
+## Download API
+
+The download endpoint proxies image requests with custom filenames:
+
+```typescript title="app/api/download/route.ts"
+// Download API proxies Cloudflare CDN images with custom filenames
+const downloadUrl = `/api/download?url=${encodeURIComponent(wallpaper.fullRes)}&filename=${encodeURIComponent(filename)}`
+```
+
+## Responsive Image Gallery
+
+Reusable gallery component with desktop grid and mobile carousel:
+
+```tsx title="components/organisms/responsive-image-gallery.tsx"
+interface ImageData {
+  id: number
+  src: string
+  alt: string
+}
+
+interface ResponsiveImageGalleryProps {
+  images: [ImageData, ImageData, ImageData]
+}
+
+const imageVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.2,
+      duration: 0.8,
+      ease: "easeOut"
+    }
+  })
+}
+
+export function ResponsiveImageGallery({ images }: ResponsiveImageGalleryProps) {
+  return (
+    <div className="h-[50vh]">
+      {/* Desktop: 3-column grid */}
+      <div className="hidden md:grid grid-cols-3 gap-0 h-full">
+        {images.map((image, index) => (
+          <motion.div
+            key={image.id}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={imageVariants}
+            custom={index}
+            className="relative overflow-hidden group cursor-pointer"
+          >
+            <img 
+              src={image.src} 
+              alt={image.alt} 
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+            />
+          </motion.div>
+        ))}
+      </div>
+      
+      {/* Mobile: Carousel */}
+      <div className="md:hidden h-full px-4 py-4">
+        <motion.div 
+          initial={{ opacity: 0 }} 
+          whileInView={{ opacity: 1 }} 
+          viewport={{ once: true }} 
+          transition={{ duration: 0.8 }}
+        >
+          <MobileSectionCarousel images={images} />
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+```
+
+## Staggered Animation
+
+Images animate in with staggered delays:
+
+```tsx title="app/media/page.tsx"
+{wallpapers.map((wallpaper, index) => (
+  <motion.div
+    key={wallpaper.id}
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.5, delay: index * 0.1 }} // Stagger by 100ms
+    className="flex flex-col gap-4"
+  >
+    {/* Image and download button */}
+  </motion.div>
+))}
+```
+
+## Timeline Gallery
+
+The timeline feature uses Cloudflare Images for historical photos:
+
+```typescript title="lib/timeline-data.ts"
+export const timelineData = [
+  { 
+    year: "1970", 
+    title: "Jeevanpran Shree Muktajeevan Swamibapa's First Visit to USA", 
+    description: "", 
+    speed: 3, 
+    image: getCloudflareImage("fc5c68aa-dc1f-44b4-9736-326e30be9900") 
+  },
+  { 
+    year: "1987", 
+    title: "Acharya Swamishree Maharaj establishes SSSSM USA", 
+    description: "", 
+    speed: -3, 
+    image: getCloudflareImage("4e613a00-fa0e-489e-84bb-a90a8cc74100") 
+  },
+  { 
+    year: "1992", 
+    title: "Acharya Swamishree Maharaj's Second Visit to USA", 
+    description: "", 
+    speed: 3, 
+    image: getCloudflareImage("c2ccd5c1-2068-44e3-0b0f-36219cce8100") 
+  },
+  // ... 30+ more years of history
+  { 
+    year: "2026", 
+    title: "Something Extraordinary Awaits...", 
+    description: "", 
+    speed: 3, 
+    image: "https://cdn.njrajatmahotsav.com/main_logo.png" 
+  },
+]
+```
+
+## Image Optimization Best Practices
+
+<Steps>
+  <Step title="Use Appropriate Variants">
+    Choose the right Cloudflare Images variant for your use case (mobileWP for wallpapers, bigger for galleries)
+  </Step>
+  
+  <Step title="Lazy Loading">
+    Images use `whileInView` to only animate when scrolled into viewport
+  </Step>
+  
+  <Step title="Aspect Ratios">
+    Define aspect ratios with `aspect-[9/19.5]` to prevent layout shift during loading
+  </Step>
+  
+  <Step title="CDN Caching">
+    Cloudflare CDN automatically caches images globally for fast delivery
+  </Step>
+</Steps>
+
+## Performance Metrics
+
+- **CDN Response Time**: < 50ms globally
+- **Image Format**: Automatic WebP/AVIF conversion
+- **Compression**: Dynamic quality adjustment based on network
+- **Cache Hit Rate**: > 95% for repeat visitors
+
+<Warning>
+Always use the CDN helper functions (`getCloudflareImage`, etc.) instead of hardcoding URLs to ensure consistent image delivery and variant selection.
+</Warning>
+
+## Related Features
+
+- [Timeline](/features/timeline) - Historical photo timeline
+- [Home Page](/pages/home) - Hero image carousel

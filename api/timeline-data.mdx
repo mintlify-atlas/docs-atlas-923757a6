@@ -1,0 +1,339 @@
+---
+title: Timeline Data
+description: Historical timeline data structure for the NJ Rajat Mahotsav event chronology
+---
+
+## Overview
+
+The `timeline-data` module exports a structured array of historical events spanning from 1970 to 2026, documenting the journey of Shree Swaminarayan Temple in New Jersey. Each entry includes year, title, description, parallax speed, and an optimized image.
+
+## Import
+
+```typescript
+import { timelineData } from "@/lib/timeline-data"
+```
+
+## Data Structure
+
+<ResponseField name="timelineData" type="TimelineEvent[]">
+  Array of chronological events with images and metadata
+</ResponseField>
+
+### TimelineEvent Interface
+
+```typescript
+interface TimelineEvent {
+  year: string              // Event year (e.g., "1970", "2026")
+  title: string            // Event title/headline
+  description: string      // Detailed description (can be empty)
+  speed: number           // Parallax scroll speed (-3 or 3)
+  image: string           // Cloudflare Images URL
+}
+```
+
+### Field Descriptions
+
+<ParamField path="year" type="string" required>
+  Four-digit year as a string. Chronologically ordered from 1970 to 2026.
+</ParamField>
+
+<ParamField path="title" type="string" required>
+  Event title describing the significant milestone or celebration.
+  
+  Examples:
+  - `"Jeevanpran Shree Muktajeevan Swamibapa's First Visit to USA"`
+  - `"Acharya Swamishree Maharaj establishes New Jersey Hari Mandir"`
+  - `"Secaucus Temple Ground Breaking"`
+</ParamField>
+
+<ParamField path="description" type="string">
+  Optional detailed description. Currently empty for all entries but available for future enhancement.
+</ParamField>
+
+<ParamField path="speed" type="number" required>
+  Parallax scroll effect speed for visual presentation. Alternates between:
+  - `3` - Scrolls faster than normal (right-aligned in UI)
+  - `-3` - Scrolls slower than normal (left-aligned in UI)
+  
+  Creates a zigzag timeline layout pattern.
+</ParamField>
+
+<ParamField path="image" type="string" required>
+  Optimized image URL from Cloudflare Images CDN. Generated using `getCloudflareImage()` helper.
+  
+  Format: `https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/{imageId}/bigger?format=auto&quality=90`
+</ParamField>
+
+## Complete Data Export
+
+The timeline includes 38 milestone events:
+
+```typescript
+export const timelineData = [
+  {
+    year: "1970",
+    title: "Jeevanpran Shree Muktajeevan Swamibapa's First Visit to USA",
+    description: "",
+    speed: 3,
+    image: getCloudflareImage("fc5c68aa-dc1f-44b4-9736-326e30be9900")
+  },
+  {
+    year: "1987",
+    title: "Acharya Swamishree Maharaj establishes SSSSM USA",
+    description: "",
+    speed: -3,
+    image: getCloudflareImage("4e613a00-fa0e-489e-84bb-a90a8cc74100")
+  },
+  {
+    year: "1995",
+    title: "Acharya Swamishree Maharaj establishes New Jersey Hari Mandir",
+    description: "",
+    speed: -3,
+    image: getCloudflareImage("2cbb4a79-66f6-4eef-96b1-2521e1584e00")
+  },
+  {
+    year: "2001",
+    title: "Suvarna Tula Murti Pratishtha Opening",
+    description: "",
+    speed: -3,
+    image: getCloudflareImage("1742c4b3-44e1-4604-6dde-73a9dc83cf00")
+  },
+  {
+    year: "2011",
+    title: "New Jersey Dashabdi Mahotsav",
+    description: "",
+    speed: -3,
+    image: getCloudflareImage("1c4485c9-0b8c-44c7-e8f0-0ae5b934cb00")
+  },
+  {
+    year: "2019",
+    title: "Acharya Swamishree Maharaj Final USA Vicharan",
+    description: "",
+    speed: -3,
+    image: getCloudflareImage("4a90683c-8f77-48ab-3907-37743cec6c00")
+  },
+  {
+    year: "2026",
+    title: "Something Extraordinary Awaits...",
+    description: "",
+    speed: 3,
+    image: "https://cdn.njrajatmahotsav.com/main_logo.png"
+  }
+  // ... 31 more events (38 total)
+]
+```
+
+<Note>
+  The 2026 entry uses a static logo instead of a Cloudflare Images URL, serving as a promotional teaser for the upcoming event.
+</Note>
+
+## Usage Examples
+
+### Basic Timeline Rendering
+
+```tsx
+import { timelineData } from "@/lib/timeline-data"
+
+export function Timeline() {
+  return (
+    <div className="timeline-container">
+      {timelineData.map((item, index) => (
+        <div
+          key={index}
+          className="timeline-item"
+          data-speed={item.speed}
+        >
+          <div className="year">{item.year}</div>
+          <h3 className="title">{item.title}</h3>
+          {item.description && (
+            <p className="description">{item.description}</p>
+          )}
+          <img src={item.image} alt={item.title} />
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+### Real Usage from `timeline/page.tsx`
+
+```tsx
+import { timelineData } from "@/lib/timeline-data"
+
+export default function TimelinePage() {
+  return (
+    <div className="timeline-grid">
+      {timelineData.map((item, index) => (
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: index * 0.1 }}
+          className={cn(
+            "timeline-card",
+            item.speed > 0 ? "timeline-right" : "timeline-left"
+          )}
+        >
+          <div className="timeline-year">{item.year}</div>
+          <Image
+            src={item.image}
+            alt={item.title}
+            width={600}
+            height={400}
+            className="timeline-image"
+          />
+          <h3 className="timeline-title">{item.title}</h3>
+        </motion.div>
+      ))}
+    </div>
+  )
+}
+```
+
+### Mobile Timeline (Simplified)
+
+```tsx
+import { timelineData } from "@/lib/timeline-data"
+
+export function MobileTimeline() {
+  return (
+    <div className="mobile-timeline">
+      {timelineData.map((item, index) => (
+        <div key={index} className="mobile-timeline-item">
+          <div className="timeline-marker">
+            <span className="year-badge">{item.year}</span>
+          </div>
+          <div className="timeline-content">
+            <img
+              src={item.image}
+              alt={item.title}
+              className="w-full rounded-lg mb-4"
+            />
+            <h4 className="font-semibold text-lg">{item.title}</h4>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+### Filtering by Decade
+
+```tsx
+import { timelineData } from "@/lib/timeline-data"
+
+function getEventsByDecade(decade: number) {
+  return timelineData.filter(event => {
+    const year = parseInt(event.year)
+    return year >= decade && year < decade + 10
+  })
+}
+
+// Get all events from the 2000s
+const events2000s = getEventsByDecade(2000)
+// [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009]
+
+// Get all events from the 2010s
+const events2010s = getEventsByDecade(2010)
+// [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
+```
+
+### Parallax Speed Grouping
+
+```tsx
+import { timelineData } from "@/lib/timeline-data"
+
+const leftAlignedEvents = timelineData.filter(e => e.speed < 0)
+const rightAlignedEvents = timelineData.filter(e => e.speed > 0)
+
+console.log(`Left-aligned: ${leftAlignedEvents.length} events`)
+console.log(`Right-aligned: ${rightAlignedEvents.length} events`)
+```
+
+## Key Milestones Summary
+
+<Tabs>
+  <Tab title="1970-1999">
+    **Foundation Era** (6 events)
+    
+    - 1970: First visit to USA by Jeevanpran Shree Muktajeevan Swamibapa
+    - 1987: SSSSM USA establishment
+    - 1992: Second USA visit
+    - 1995: New Jersey Hari Mandir established
+    - 1998: Secaucus Temple ground breaking
+    - 1999: Construction site visit
+  </Tab>
+  
+  <Tab title="2000-2010">
+    **Growth Era** (11 events)
+    
+    - 2001: Suvarna Tula Murti Pratishtha
+    - 2002: Community Hall opening
+    - 2003: First Youth Satsang Shibir
+    - 2004: Helicopter arrival event
+    - 2005: First Health Camp
+    - 2006: 5th Patotsav & Rangotsav
+    - 2007: Shatabdi Mahotsav
+    - 2008: Buchmuller Park program
+    - 2009: Diwali Annakut
+    - 2010: Father's Day celebration
+  </Tab>
+  
+  <Tab title="2011-2020">
+    **Expansion Era** (10 events)
+    
+    - 2011: Dashabdi Mahotsav
+    - 2012: Platinum Tula
+    - 2013: Pipe Band 10th Anniversary
+    - 2014: Flash Mob Welcome
+    - 2015: One World Trade Center visit
+    - 2016: Smruti Mandir Rajat Mahotsav
+    - 2017: Sadbhav Amrut Parva
+    - 2018: New Loya Shakotsav
+    - 2019: Final USA Vicharan
+    - 2020: Memorial tribute
+  </Tab>
+  
+  <Tab title="2021-2026">
+    **Modern Era** (6 events)
+    
+    - 2021: 20th Patotsav
+    - 2022: Asthi ceremony
+    - 2023: Chandan Darshan
+    - 2024: Guruparampara Grand Hindolo
+    - 2025: Flower petal celebration
+    - 2026: **NJ Rajat Mahotsav** (Current event)
+  </Tab>
+</Tabs>
+
+## Performance Considerations
+
+- **Total entries:** 38 events
+- **Image preloading:** Consider lazy loading for off-screen timeline items
+- **Data size:** ~6KB (minified)
+- **Caching:** Static data, safe to cache indefinitely
+
+## Extending the Timeline
+
+To add new events:
+
+```typescript
+import { getCloudflareImage } from "@/lib/cdn-assets"
+
+export const timelineData = [
+  // ... existing events
+  {
+    year: "2027",
+    title: "New Event Title",
+    description: "Optional detailed description",
+    speed: 3, // or -3 to alternate pattern
+    image: getCloudflareImage("your-image-id-here")
+  }
+]
+```
+
+<Note>
+  Maintain the alternating `speed` pattern (3, -3, 3, -3...) for consistent zigzag layout.
+</Note>

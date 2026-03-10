@@ -1,0 +1,667 @@
+---
+title: UI Components
+description: shadcn/ui components and custom effects library in the NJ Rajat Mahotsav platform
+---
+
+# UI Components
+
+The `/components/ui` directory contains shadcn/ui components and custom visual effects. These components provide the base layer for styling and animations used throughout the application.
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="shadcn/ui" icon="layer-group">
+    Radix UI-based accessible components with Tailwind styling
+  </Card>
+  <Card title="Custom Effects" icon="wand-magic-sparkles">
+    Animation and visual effect components
+  </Card>
+</CardGroup>
+
+## shadcn/ui Components
+
+These components follow the shadcn/ui pattern: copy-paste components built on Radix UI primitives with Tailwind CSS.
+
+### Accordion
+
+Collapsible content sections with smooth animations.
+
+**Subcomponents:**
+- `Accordion` - Root container
+- `AccordionItem` - Individual collapsible item
+- `AccordionTrigger` - Clickable header
+- `AccordionContent` - Collapsible content area
+
+**Usage:**
+
+```tsx components/ui/accordion.tsx
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+
+<Accordion type="single" collapsible>
+  <AccordionItem value="item-1">
+    <AccordionTrigger>What is NJ Rajat Mahotsav?</AccordionTrigger>
+    <AccordionContent>
+      A grand celebration organized by Shree Swaminarayan Temple Secaucus
+      commemorating 25 years of spiritual service.
+    </AccordionContent>
+  </AccordionItem>
+  
+  <AccordionItem value="item-2">
+    <AccordionTrigger>When is the event?</AccordionTrigger>
+    <AccordionContent>
+      July 29 - August 2, 2026
+    </AccordionContent>
+  </AccordionItem>
+  
+  <AccordionItem value="item-3">
+    <AccordionTrigger>How do I register?</AccordionTrigger>
+    <AccordionContent>
+      Visit the registration page and fill out the form with your details.
+    </AccordionContent>
+  </AccordionItem>
+</Accordion>
+```
+
+**Features:**
+- Animated chevron icon rotation
+- Smooth expand/collapse transitions
+- Single or multiple items open
+- Keyboard navigation support
+- ARIA attributes for accessibility
+
+**Props:**
+
+```typescript
+// Accordion
+type: "single" | "multiple"
+collapsible?: boolean    // For single type
+defaultValue?: string    // Initial open item(s)
+
+// AccordionItem
+value: string           // Unique identifier
+disabled?: boolean
+
+// AccordionTrigger & AccordionContent
+className?: string
+```
+
+### Button
+
+Versatile button component with multiple variants - also available in `/components/atoms`.
+
+**Usage:**
+
+```tsx components/ui/button.tsx
+import { Button } from '@/components/ui/button'
+
+<Button variant="default" size="default">
+  Click Me
+</Button>
+
+<Button variant="destructive" size="lg">
+  Delete
+</Button>
+
+<Button variant="outline" size="sm">
+  Cancel
+</Button>
+
+<Button variant="ghost" size="icon">
+  <Icon />
+</Button>
+```
+
+**Variants:**
+- `default` - Primary button with solid background
+- `destructive` - Red button for dangerous actions
+- `outline` - Button with border, no fill
+- `secondary` - Secondary button style
+- `ghost` - Transparent button with hover effect
+- `link` - Text link style
+
+**Sizes:**
+- `default` - h-10 px-4 py-2
+- `sm` - h-9 px-3
+- `lg` - h-11 px-8
+- `icon` - h-10 w-10 (square)
+
+## Custom Effect Components
+
+These components provide advanced visual effects and animations.
+
+### InfiniteSlider
+
+Infinite scrolling content slider with configurable direction and speed.
+
+**Props Interface:**
+
+```typescript components/ui/infinite-slider.tsx
+type InfiniteSliderProps = {
+  children: React.ReactNode
+  gap?: number              // Default: 16px
+  duration?: number         // Default: 25s
+  durationOnHover?: number  // Optional hover speed
+  direction?: 'horizontal' | 'vertical'  // Default: 'horizontal'
+  reverse?: boolean         // Default: false
+  className?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import { InfiniteSlider } from '@/components/ui/infinite-slider'
+
+<InfiniteSlider 
+  gap={24}
+  duration={30}
+  durationOnHover={60}
+  direction="horizontal"
+  className="my-8"
+>
+  {logos.map((logo, index) => (
+    <div key={index} className="flex-shrink-0">
+      <img src={logo.src} alt={logo.alt} className="h-12" />
+    </div>
+  ))}
+</InfiniteSlider>
+```
+
+**Features:**
+- Infinite loop animation
+- Horizontal or vertical scrolling
+- Reversible direction
+- Hover to slow down (optional)
+- Content duplication for seamless loop
+- Uses Framer Motion for smooth animations
+
+**Implementation Details:**
+
+```tsx components/ui/infinite-slider.tsx
+const translation = useMotionValue(0)
+const [ref, { width, height }] = useMeasure()
+
+useEffect(() => {
+  const size = direction === 'horizontal' ? width : height
+  const contentSize = size + gap
+  const from = reverse ? -contentSize / 2 : 0
+  const to = reverse ? 0 : -contentSize / 2
+  
+  const controls = animate(translation, [from, to], {
+    ease: 'linear',
+    duration: currentDuration,
+    repeat: Infinity,
+    repeatType: 'loop'
+  })
+  
+  return controls?.stop
+}, [width, height, gap, currentDuration])
+```
+
+### FloatingParticles
+
+Animated floating particle background effect.
+
+**Props Interface:**
+
+```typescript components/ui/floating-particles.tsx
+interface FloatingParticlesProps {
+  count?: number          // Default: 50
+  speed?: number          // Default: 1
+  particleSize?: number   // Default: 4
+  className?: string
+  colors?: string[]       // Default: ['#fff']
+}
+```
+
+**Usage:**
+
+```tsx
+import { FloatingParticles } from '@/components/ui/floating-particles'
+
+<div className="relative h-screen">
+  <FloatingParticles 
+    count={100}
+    speed={0.5}
+    particleSize={6}
+    colors={['#FFD700', '#FFA500', '#FF6347']}
+  />
+  <div className="relative z-10">
+    {/* Content above particles */}
+  </div>
+</div>
+```
+
+**Features:**
+- Random particle positioning
+- Floating animation with varying speeds
+- Customizable colors and sizes
+- Performance-optimized rendering
+- Non-interactive background layer
+
+### GradientMeshBackground
+
+Animated gradient mesh background with smooth color transitions.
+
+**Props Interface:**
+
+```typescript components/ui/gradient-mesh-background.tsx
+interface GradientMeshBackgroundProps {
+  colors?: string[]       // Default: preset colors
+  speed?: number          // Default: 20s
+  className?: string
+  children?: React.ReactNode
+}
+```
+
+**Usage:**
+
+```tsx
+import { GradientMeshBackground } from '@/components/ui/gradient-mesh-background'
+
+<GradientMeshBackground 
+  colors={[
+    '#0D132D',  // Navy
+    '#B50000',  // Red
+    '#FFD700',  // Gold
+    '#FF6347'   // Orange
+  ]}
+  speed={15}
+  className="min-h-screen"
+>
+  <div className="relative z-10 container mx-auto">
+    {/* Page content */}
+  </div>
+</GradientMeshBackground>
+```
+
+**Features:**
+- Smooth animated gradients
+- Multiple color stops
+- CSS-based animation (no JS overhead)
+- Works as container or background
+- Customizable animation speed
+
+### ImageGridBackground
+
+Mosaic-style image grid background with parallax effect.
+
+**Props Interface:**
+
+```typescript components/ui/image-grid-background.tsx
+interface ImageGridBackgroundProps {
+  images: string[]        // Array of image URLs
+  columns?: number        // Default: 6
+  gap?: number           // Default: 4
+  opacity?: number       // Default: 0.3
+  parallax?: boolean     // Default: true
+  className?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import { ImageGridBackground } from '@/components/ui/image-grid-background'
+
+const backgroundImages = [
+  '/gallery/event1.jpg',
+  '/gallery/event2.jpg',
+  '/gallery/event3.jpg',
+  // ... more images
+]
+
+<ImageGridBackground 
+  images={backgroundImages}
+  columns={8}
+  gap={2}
+  opacity={0.2}
+  parallax={true}
+  className="fixed inset-0 z-0"
+/>
+```
+
+**Features:**
+- Responsive grid layout
+- Parallax scroll effect
+- Adjustable opacity
+- Random image distribution
+- Optimized for large image arrays
+
+### LightRaysEffect
+
+Divine light rays emanating from center.
+
+**Props Interface:**
+
+```typescript components/ui/light-rays-effect.tsx
+interface LightRaysEffectProps {
+  rayCount?: number       // Default: 12
+  color?: string          // Default: '#FFD700'
+  opacity?: number        // Default: 0.1
+  duration?: number       // Default: 30s
+  className?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import { LightRaysEffect } from '@/components/ui/light-rays-effect'
+
+<div className="relative h-screen bg-gradient-to-b from-blue-900 to-purple-900">
+  <LightRaysEffect 
+    rayCount={16}
+    color="#FFD700"
+    opacity={0.15}
+    duration={40}
+  />
+  <div className="relative z-10">
+    {/* Content */}
+  </div>
+</div>
+```
+
+**Features:**
+- Radial gradient rays
+- Rotating animation
+- Customizable ray count and color
+- Blend mode effects
+- Fixed positioning for backgrounds
+
+## shadcn/ui Registries
+
+The project includes custom registries for specialized components:
+
+### Background Paths
+
+Animated SVG background paths.
+
+**Location:** `/components/ui/shadcn-io/background-paths/`
+
+**Usage:**
+
+```tsx
+import { BackgroundPaths } from '@/components/ui/shadcn-io/background-paths'
+
+<BackgroundPaths className="opacity-20" />
+```
+
+### Dropzone
+
+File upload dropzone component.
+
+**Location:** `/components/ui/shadcn-io/dropzone/`
+
+**Usage:**
+
+```tsx
+import { Dropzone } from '@/components/ui/shadcn-io/dropzone'
+
+<Dropzone 
+  onDrop={handleFiles}
+  accept={{ 'image/*': ['.png', '.jpg', '.jpeg'] }}
+  maxSize={5 * 1024 * 1024}  // 5MB
+>
+  <div className="text-center">
+    <p>Drag & drop images here</p>
+    <p className="text-sm text-gray-500">or click to browse</p>
+  </div>
+</Dropzone>
+```
+
+## Integration with Component Libraries
+
+The project supports additional component registries:
+
+### MagicUI
+
+**Registry:** `https://magicui.design`
+
+Specialized animation and effect components.
+
+### Aceternity UI
+
+**Registry:** `https://ui.aceternity.com`
+
+Modern UI components with advanced effects (e.g., 3D Pin used in molecules).
+
+### Skiper UI
+
+**Registry:** `https://skiper-ui.com`
+
+Additional utility components.
+
+**Installation:**
+
+```bash
+# Example: Add a component from MagicUI
+npx shadcn-ui@latest add https://magicui.design/r/animated-beam
+```
+
+## Styling Conventions
+
+### Tailwind CSS v4
+
+All UI components use Tailwind CSS v4 with custom configuration:
+
+```css app/globals.css
+@import "tailwindcss";
+
+/* Custom color palette */
+:root {
+  --preset-deep-navy: #0D132D;
+  --preset-navy-accent: #1E1F3C;
+  --preset-zodiac-blue: #0F2847;
+  --preset-red: #B50000;
+  --preset-light-gray: #EEF0F2;
+  --preset-stone: #F1EFE8;
+  --preset-pale-gray: #F8F8F0;
+  --preset-bluish-gray: #E0E7EF;
+}
+
+/* Custom spacing */
+:root {
+  --page-header-spacing: 4rem;
+  --page-title-description-spacing: 1.5rem;
+  --page-bottom-spacing: 4rem;
+}
+```
+
+### Class Variance Authority (CVA)
+
+Button and other variant-based components use CVA:
+
+```typescript components/ui/button.tsx
+import { cva, type VariantProps } from "class-variance-authority"
+
+const buttonVariants = cva(
+  "base-classes",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground",
+        destructive: "bg-destructive text-white",
+        // ...
+      },
+      size: {
+        default: "h-10 px-4",
+        sm: "h-9 px-3",
+        // ...
+      }
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default"
+    }
+  }
+)
+```
+
+### Utility Function
+
+Class name merging utility:
+
+```typescript lib/utils.ts
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+```
+
+**Usage:**
+
+```tsx
+import { cn } from '@/lib/utils'
+
+<div className={cn(
+  "base-classes",
+  isActive && "active-classes",
+  className  // Allow prop override
+)}>
+  {/* Content */}
+</div>
+```
+
+## Animation Patterns
+
+### Framer Motion Integration
+
+Many UI components use Framer Motion for animations:
+
+```tsx
+import { motion, AnimatePresence } from 'framer-motion'
+
+<AnimatePresence mode="wait">
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -20 }}
+    transition={{ duration: 0.3 }}
+  >
+    {content}
+  </motion.div>
+</AnimatePresence>
+```
+
+### CSS Animations
+
+Tailwind animation utilities:
+
+```tsx
+<div className="animate-spin">
+  <LoaderIcon />
+</div>
+
+<div className="animate-pulse">
+  Loading...
+</div>
+
+<div className="animate-bounce">
+  <ArrowDown />
+</div>
+```
+
+### Custom Keyframes
+
+```css tailwind.config.ts
+export default {
+  theme: {
+    extend: {
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' }
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' }
+        }
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out'
+      }
+    }
+  }
+}
+```
+
+## Accessibility
+
+All UI components follow accessibility best practices:
+
+<Accordion title="Keyboard Navigation">
+  - Tab navigation support
+  - Enter/Space for activation
+  - Arrow keys for lists/dropdowns
+  - Escape to close modals/dropdowns
+</Accordion>
+
+<Accordion title="ARIA Attributes">
+  - `aria-label` for icon buttons
+  - `aria-expanded` for collapsible content
+  - `aria-hidden` for decorative elements
+  - `role` attributes for semantic meaning
+</Accordion>
+
+<Accordion title="Focus Management">
+  - Visible focus indicators
+  - Focus trap in modals
+  - Restore focus on close
+  - Skip links for navigation
+</Accordion>
+
+<Accordion title="Screen Reader Support">
+  - Semantic HTML elements
+  - Descriptive labels
+  - Live region announcements
+  - Alternative text for images
+</Accordion>
+
+## Best Practices
+
+<Warning>
+  When using UI components:
+  1. Always import from the correct path (`@/components/ui`)
+  2. Use the `cn()` utility for class name merging
+  3. Maintain accessibility attributes
+  4. Follow the shadcn/ui update pattern
+  5. Test animations for performance
+  6. Provide fallbacks for effects
+  7. Use semantic HTML elements
+</Warning>
+
+## Component Updates
+
+To update shadcn/ui components:
+
+```bash
+# Update a specific component
+npx shadcn-ui@latest add button
+
+# Update all components
+npx shadcn-ui@latest add --all --overwrite
+```
+
+<Note>
+  The `/components/ui` directory is maintained separately to allow easy updates from shadcn/ui without affecting custom components.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Atoms" icon="atom" href="/components/atoms">
+    See how atoms use these UI primitives
+  </Card>
+  <Card title="Overview" icon="book-open" href="/components/overview">
+    Return to component architecture overview
+  </Card>
+</CardGroup>

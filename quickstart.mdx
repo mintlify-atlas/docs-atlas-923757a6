@@ -1,80 +1,167 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get the NJ Rajat Mahotsav platform running locally in minutes"
 ---
 
-## Get started in three steps
+# Quickstart Guide
 
-Get your documentation site running locally and make your first customization.
+Get the NJ Rajat Mahotsav event platform up and running on your local machine in just a few minutes.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+Before you begin, ensure you have the following installed:
 
-### Step 2: Deploy your changes
+- **Node.js 18+** and npm
+- **Git** for cloning the repository
+- A code editor (VS Code recommended)
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+## Quick Setup
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Steps>
+  <Step title="Clone the repository">
+    Clone the project from GitHub:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash
+    git clone https://github.com/vijaykpatel/Rajat-Mahotsav-Website.git
+    cd Rajat-Mahotsav-Website
+    ```
+  </Step>
 
-### Step 3: Go live
+  <Step title="Install dependencies">
+    Install all required packages:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    <CodeGroup>
+    ```bash npm
+    npm install
+    ```
 
-## Next steps
+    ```bash yarn
+    yarn install
+    ```
 
-Now that you have your docs running, explore these key features:
+    ```bash pnpm
+    pnpm install
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Set up environment variables">
+    Create a `.env.local` file in the project root with the following variables:
+
+    ```bash .env.local
+    # Supabase Configuration
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+    # Cloudflare R2 (Optional for local dev)
+    R2_ENDPOINT=your_r2_endpoint
+    R2_ACCESS_KEY_ID=your_access_key
+    R2_SECRET_ACCESS_KEY=your_secret_key
+    R2_BUCKET_NAME=your_bucket_name
+    R2_BUCKET_PREFIX=your_prefix
+    ```
+
+    <Note>
+      For local development, you only need the Supabase variables. Cloudflare R2 is optional unless you're testing file uploads.
+    </Note>
+  </Step>
+
+  <Step title="Run the development server">
+    Start the Next.js development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    The application will be available at [http://localhost:3000](http://localhost:3000).
+  </Step>
+
+  <Step title="Verify the setup">
+    Open your browser and navigate to [http://localhost:3000](http://localhost:3000). You should see the NJ Rajat Mahotsav landing page.
+
+    <Note>
+      The site will work without Supabase for browsing, but you'll need it configured for registration and admin features.
+    </Note>
+  </Step>
+</Steps>
+
+## What's Next?
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="Full Installation Guide"
+    icon="gear"
+    href="/installation"
+  >
+    Complete environment setup with Supabase and Cloudflare configuration
+  </Card>
+  <Card
+    title="Architecture Overview"
+    icon="sitemap"
+    href="/architecture/overview"
+  >
+    Learn about the platform's architecture and design patterns
+  </Card>
+  <Card
+    title="Core Features"
+    icon="star"
+    href="/features/event-registration"
+  >
+    Explore event registration, admin dashboard, and more
+  </Card>
+  <Card
+    title="Component Library"
+    icon="cubes"
+    href="/components/overview"
+  >
+    Browse the atomic design component structure
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Common Commands
+
+```bash
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Run linter
+npm run lint
+```
+
+## Troubleshooting
+
+<Accordion title="Port 3000 is already in use">
+  If port 3000 is already in use, you can specify a different port:
+
+  ```bash
+  PORT=3001 npm run dev
+  ```
+</Accordion>
+
+<Accordion title="Module not found errors">
+  Clear your node_modules and reinstall:
+
+  ```bash
+  rm -rf node_modules package-lock.json
+  npm install
+  ```
+</Accordion>
+
+<Accordion title="Environment variables not loading">
+  Make sure your `.env.local` file is in the project root directory (not inside `app/` or `src/`). Restart the dev server after creating or modifying the file.
+</Accordion>
+
+## Next Steps
+
+Now that you have the platform running locally, explore these resources:
+
+- [Installation Guide](/installation) - Detailed setup with all integrations
+- [Event Registration](/features/event-registration) - Learn about the registration system
+- [Admin Dashboard](/features/admin-dashboard) - Understand the admin portal
+- [Deployment Guide](/deployment/vercel-deployment) - Deploy to production

@@ -1,0 +1,200 @@
+---
+title: Component Architecture Overview
+description: Understanding the atomic design methodology used in NJ Rajat Mahotsav platform
+---
+
+# Component Architecture Overview
+
+The NJ Rajat Mahotsav platform follows a strict **Atomic Design** methodology for organizing components. This approach creates a clear hierarchy from simple building blocks to complex page layouts.
+
+## Design Philosophy
+
+Atomic Design breaks UI components into five distinct levels:
+
+<CardGroup cols={2}>
+  <Card title="Atoms" icon="atom" href="/components/atoms">
+    Basic building blocks - buttons, inputs, labels, and other primitives
+  </Card>
+  <Card title="Molecules" icon="cube" href="/components/molecules">
+    Simple component groups combining multiple atoms
+  </Card>
+  <Card title="Organisms" icon="layer-group" href="/components/organisms">
+    Complex UI sections combining molecules and atoms
+  </Card>
+  <Card title="UI Components" icon="palette" href="/components/ui-components">
+    shadcn/ui components and custom effects
+  </Card>
+</CardGroup>
+
+## Directory Structure
+
+All components are organized under `/components` with clear separation:
+
+```bash
+components/
+├── atoms/           # Basic primitives
+├── molecules/       # Composite components
+├── organisms/       # Complex sections
+├── templates/       # Page layouts (minimal)
+└── ui/             # shadcn/ui components
+```
+
+## Import Patterns
+
+The project provides index files for cleaner imports:
+
+<Tabs>
+  <Tab title="Recommended">
+    ```typescript
+    // Clean imports using index files
+    import { LoadingScreen, Typewriter } from '@/components/atoms'
+    import { GuruCard, ProgressCounter } from '@/components/molecules'
+    import { Navigation, StickyFooter } from '@/components/organisms'
+    ```
+  </Tab>
+  <Tab title="Alternative">
+    ```typescript
+    // Direct imports (still valid)
+    import LoadingScreen from '@/components/atoms/loading-screen'
+    import GuruCard from '@/components/molecules/guru-card'
+    import Navigation from '@/components/organisms/navigation'
+    ```
+  </Tab>
+</Tabs>
+
+## Component Categories
+
+### Atoms (18 components)
+
+The foundation layer includes:
+- Form controls: Button, Input, Label, Checkbox, Textarea, Select
+- Layout: Card, ScrollArea, Popover
+- Feedback: LoadingScreen, Toast, TagBadge
+- Effects: Typewriter, ThemeProvider
+- Navigation: ScrollToTop, FloatingButton, AudioChoiceButton
+
+See the [Atoms documentation](/components/atoms) for details.
+
+### Molecules (23 components)
+
+Composite components that combine atoms:
+- Cards: GuruCard, EventCard, ScheduleCard, TransportCard
+- Inputs: PhoneInput, DatePicker variants, CountrySelector
+- UI Elements: CountdownTimer, ProgressCounter, Carousel
+- Media: IphoneMock, 3DPin
+- Navigation: Command, Dialog, Toaster
+
+See the [Molecules documentation](/components/molecules) for details.
+
+### Organisms (40+ components)
+
+Complex sections and page-level components:
+- Navigation: Navigation, DesktopNavigation, FloatingMenuButton, TubelightNavigation
+- Forms: SevaSubmissionForm, EventDetailsModal
+- Media: VideoSection, ImageMarquee, ImageCarouselModal, AashirwadVideoPlayer
+- Layout: Header, StickyFooter, StandardPageHeader, ShaderBackground
+- Content: AnimatedTextSection, BentoInitiatives, PathOfServiceStory
+- Timeline: MobileTimeline, GuruCarousel
+
+See the [Organisms documentation](/components/organisms) for details.
+
+### UI Components
+
+The `/ui` directory contains:
+- **shadcn/ui components**: Accordion, Button, and other Radix UI-based primitives
+- **Custom effects**: InfiniteSlider, FloatingParticles, GradientMeshBackground
+- **Registries**: Components from @magicui, @aceternity, @skiper-ui
+
+See the [UI Components documentation](/components/ui-components) for details.
+
+## Technology Stack
+
+<Accordion title="Core Libraries">
+  - **React 19** with Next.js 15 App Router
+  - **TypeScript** for type safety
+  - **Tailwind CSS v4** for styling
+  - **Framer Motion** for animations
+  - **Radix UI** for accessible primitives
+</Accordion>
+
+<Accordion title="Form Handling">
+  - **react-hook-form** with zod validation
+  - **react-phone-number-input** for international phone fields
+  - **react-day-picker** for date selection
+  - **chrono-node** for natural language date parsing
+</Accordion>
+
+<Accordion title="Media & Assets">
+  - **Cloudflare CDN** for static assets and images
+  - **Supabase** for backend data storage
+  - **GSAP** for advanced animations
+  - **locomotive-scroll** for scroll effects
+</Accordion>
+
+## Key Features
+
+### Type Safety
+
+All components use TypeScript interfaces for props:
+
+```typescript components/molecules/guru-card.tsx
+interface GuruCardProps {
+  imageId: string
+  name: string
+  className?: string
+}
+```
+
+### Responsive Design
+
+Components use Tailwind's responsive utilities:
+
+```tsx
+<div className="w-72 sm:w-80 md:w-[26rem] h-[28rem] sm:h-[32rem] md:h-[34rem]">
+  {/* Responsive sizing */}
+</div>
+```
+
+### Animation Support
+
+Framer Motion provides declarative animations:
+
+```tsx
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.6 }}
+>
+  {/* Animated content */}
+</motion.div>
+```
+
+### CDN Integration
+
+Cloudflare CDN helpers optimize image delivery:
+
+```typescript
+import { getCloudflareImage } from '@/lib/cdn-assets'
+
+const imageUrl = getCloudflareImage(imageId)
+```
+
+## Component Guidelines
+
+<Warning>
+  When creating new components:
+  1. Place them in the appropriate atomic design level
+  2. Export from the level's index.ts file
+  3. Use TypeScript interfaces for all props
+  4. Follow existing naming conventions
+  5. Prefer composition over prop drilling
+</Warning>
+
+## Next Steps
+
+Explore each component category in detail:
+
+- [Atoms](/components/atoms) - Basic building blocks
+- [Molecules](/components/molecules) - Composite components
+- [Organisms](/components/organisms) - Complex sections
+- [UI Components](/components/ui-components) - shadcn/ui and effects

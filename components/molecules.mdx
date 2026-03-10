@@ -1,0 +1,701 @@
+---
+title: Molecules
+description: Composite components combining atoms in the NJ Rajat Mahotsav platform
+---
+
+# Molecules
+
+Molecules are simple composite components that combine multiple atoms to create functional UI elements. They represent the next level up from atoms in the atomic design hierarchy.
+
+## Overview
+
+The `/components/molecules` directory contains 23 components organized into functional categories:
+
+<CardGroup cols={3}>
+  <Card title="Display Cards" icon="id-card">
+    GuruCard, EventCard, ScheduleCard, TransportCard
+  </Card>
+  <Card title="Form Inputs" icon="keyboard">
+    PhoneInput, DatePicker variants, CountrySelector
+  </Card>
+  <Card title="UI Elements" icon="grid">
+    CountdownTimer, ProgressCounter, Carousel, Dialog
+  </Card>
+</CardGroup>
+
+## Display Cards
+
+### GuruCard
+
+Displays guru images with grayscale effect and gradient borders.
+
+**Props Interface:**
+
+```typescript components/molecules/guru-card.tsx
+interface GuruCardProps {
+  imageId: string      // Cloudflare image ID
+  name: string
+  className?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import { GuruCard } from '@/components/molecules'
+
+<GuruCard 
+  imageId="guru-image-123" 
+  name="His Divine Holiness Acharya Swamishree"
+  className="mx-auto"
+/>
+```
+
+**Features:**
+- Responsive sizing: `w-72 sm:w-80 md:w-[26rem]`
+- Grayscale filter on images
+- Gradient border effect
+- Dark overlay on hover (desktop only)
+- Cloudflare CDN integration
+
+### EventCard
+
+Comprehensive event display card with media, metadata, and tags.
+
+**Props Interface:**
+
+```typescript components/molecules/event-card.tsx
+interface EventCardProps {
+  event: EventData
+  index: number
+  onPhotoClick: (photos: EventPhoto[], eventTitle: string) => void
+  onCardClick: (event: EventData) => void
+}
+
+interface EventData {
+  title: string
+  description: string
+  date: string           // Format: YYYY-MM-DD
+  tags: string[]
+  photos: EventPhoto[]
+  youtubeVideoId?: string
+  instagramUrl?: string
+}
+```
+
+**Usage:**
+
+```tsx components/molecules/event-card.tsx
+import { EventCard } from '@/components/molecules'
+
+<EventCard 
+  event={eventData}
+  index={0}
+  onPhotoClick={(photos, title) => openGallery(photos, title)}
+  onCardClick={(event) => openDetails(event)}
+/>
+```
+
+**Features:**
+- YouTube embed or photo thumbnail
+- Formatted date display
+- Tag badges with color coding
+- Staggered animation entrance
+- Click handlers for media and details
+
+### ScheduleCard
+
+Detailed schedule event card with time, location, and tags.
+
+**Usage:**
+
+```tsx
+import { ScheduleCard } from '@/components/molecules'
+
+<ScheduleCard 
+  title="Morning Prayer"
+  time="6:00 AM - 7:00 AM"
+  location="Main Hall"
+  description="Daily morning prayer and meditation"
+  tags={['Prayer', 'Daily']}
+/>
+```
+
+### TransportCard
+
+Simple card for transportation information.
+
+**Usage:**
+
+```tsx
+import { TransportCard } from '@/components/molecules'
+
+<TransportCard 
+  title="Shuttle Service"
+  description="Available from hotel to temple"
+  schedule="Every 30 minutes"
+/>
+```
+
+## Form Input Components
+
+### PhoneInput
+
+International phone number input with country selector.
+
+**Props Interface:**
+
+```typescript components/molecules/phone-input.tsx
+type PhoneInputProps = Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'onChange' | 'value'
+> & Omit<RPNInput.Props<typeof RPNInput.default>, 'onChange'> & {
+  onChange?: (value: RPNInput.Value) => void
+}
+```
+
+**Usage:**
+
+```tsx
+import { PhoneInput } from '@/components/molecules'
+import { useState } from 'react'
+import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input'
+
+const [phone, setPhone] = useState('')
+
+<PhoneInput 
+  value={phone}
+  onChange={setPhone}
+  defaultCountry="US"
+  placeholder="Enter phone number"
+/>
+
+// Validation
+if (phone && isValidPhoneNumber(phone)) {
+  const parsed = parsePhoneNumber(phone)
+  console.log('Country code:', parsed.countryCallingCode)
+  console.log('National number:', parsed.nationalNumber)
+}
+```
+
+**Features:**
+- Flag icons for countries
+- Searchable country dropdown
+- Automatic formatting
+- Validation support
+- Custom styling with registration theme
+
+### CountrySelector
+
+Dropdown for selecting countries with predefined options.
+
+**Props Interface:**
+
+```typescript components/molecules/country-selector.tsx
+interface CountrySelectorProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import { CountrySelector } from '@/components/molecules'
+
+<CountrySelector 
+  value={country}
+  onChange={setCountry}
+  placeholder="Select your country"
+/>
+```
+
+**Available Countries:**
+- India
+- USA
+- England
+- Australia
+- Canada
+- Kenya
+
+### RegistrationDatePicker
+
+Date picker optimized for registration forms.
+
+**Usage:**
+
+```tsx components/molecules/registration-date-picker.tsx
+import RegistrationDatePicker from '@/components/molecules'
+
+<RegistrationDatePicker 
+  selected={date}
+  onSelect={setDate}
+  placeholder="Select date"
+  minDate={new Date()}
+/>
+```
+
+### LazyDatePicker
+
+Lazy-loaded date picker for performance optimization.
+
+**Usage:**
+
+```tsx
+import LazyDatePicker from '@/components/molecules'
+
+<LazyDatePicker 
+  value={date}
+  onChange={setDate}
+/>
+```
+
+### LazyPhoneInput
+
+Lazy-loaded phone input component.
+
+**Usage:**
+
+```tsx components/molecules/lazy-phone-input.tsx
+import LazyPhoneInput from '@/components/molecules'
+
+<LazyPhoneInput 
+  value={phone}
+  onChange={setPhone}
+  defaultCountry="US"
+/>
+```
+
+### EventsDatePicker
+
+Date picker specifically for event filtering.
+
+**Usage:**
+
+```tsx
+import { EventsDatePicker } from '@/components/molecules'
+
+<EventsDatePicker 
+  selectedDate={filterDate}
+  onDateChange={setFilterDate}
+/>
+```
+
+## UI Elements
+
+### CountdownTimer
+
+Animated countdown timer to target date.
+
+**Props Interface:**
+
+```typescript components/molecules/countdown-timer.tsx
+interface CountdownTimerProps {
+  targetDate: string   // ISO date string
+}
+
+interface TimeLeft {
+  days: number
+  hours: number
+  minutes: number
+  seconds: number
+}
+```
+
+**Usage:**
+
+```tsx
+import CountdownTimer from '@/components/molecules'
+
+<CountdownTimer targetDate="2026-07-29T00:00:00" />
+```
+
+**Features:**
+- Real-time countdown updates
+- Animated digit transitions
+- Responsive sizing
+- Zero-padded values
+- Serif font for numbers
+
+**Rendering:**
+
+```tsx components/molecules/countdown-timer.tsx
+<div className="flex justify-center gap-2 sm:gap-3">
+  <TimeUnit value={timeLeft.days} label="Days" />
+  <TimeUnit value={timeLeft.hours} label="Hours" />
+  <TimeUnit value={timeLeft.minutes} label="Minutes" />
+  <TimeUnit value={timeLeft.seconds} label="Seconds" />
+</div>
+```
+
+### ProgressCounter
+
+Animated progress counter with icon and progress bar.
+
+**Props Interface:**
+
+```typescript components/molecules/progress-counter.tsx
+interface ProgressCounterProps {
+  icon: LucideIcon
+  label: string
+  current: number
+  target: number
+  prefix?: string
+  suffix?: string
+  delay?: number
+  inView: boolean
+}
+```
+
+**Usage:**
+
+```tsx
+import { ProgressCounter } from '@/components/molecules'
+import { Users } from 'lucide-react'
+import { useInView } from 'react-intersection-observer'
+
+const { ref, inView } = useInView({ threshold: 0.3, triggerOnce: true })
+
+<div ref={ref}>
+  <ProgressCounter 
+    icon={Users}
+    label="Registered Participants"
+    current={1250}
+    target={2000}
+    inView={inView}
+    delay={0.2}
+  />
+</div>
+```
+
+**Features:**
+- Animated count-up effect
+- Progress bar visualization
+- Percentage display
+- Icon with gradient background
+- Hover effects
+- Intersection observer trigger
+
+### Carousel
+
+Image carousel with navigation controls.
+
+**Usage:**
+
+```tsx components/molecules/carousel.tsx
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/molecules'
+
+<Carousel>
+  <CarouselContent>
+    {images.map((image, index) => (
+      <CarouselItem key={index}>
+        <img src={image.src} alt={image.alt} />
+      </CarouselItem>
+    ))}
+  </CarouselContent>
+  <CarouselPrevious />
+  <CarouselNext />
+</Carousel>
+```
+
+### VideoCarouselButtons
+
+Custom video carousel navigation buttons.
+
+**Props Interface:**
+
+```typescript components/molecules/video-carousel-buttons.tsx
+interface VideoCarouselButtonsProps {
+  onPrevious: () => void
+  onNext: () => void
+  canScrollPrev: boolean
+  canScrollNext: boolean
+  className?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import VideoCarouselButtons from '@/components/molecules'
+
+<VideoCarouselButtons 
+  onPrevious={scrollPrev}
+  onNext={scrollNext}
+  canScrollPrev={canScrollPrev}
+  canScrollNext={canScrollNext}
+/>
+```
+
+### VideoCarouselDots
+
+Dot indicators for video carousel.
+
+**Props Interface:**
+
+```typescript components/molecules/video-carousel-dots.tsx
+interface VideoCarouselDotsProps {
+  totalSlides: number
+  selectedIndex: number
+  onDotClick: (index: number) => void
+}
+```
+
+**Usage:**
+
+```tsx
+import VideoCarouselDots from '@/components/molecules'
+
+<VideoCarouselDots 
+  totalSlides={videos.length}
+  selectedIndex={currentIndex}
+  onDotClick={scrollTo}
+/>
+```
+
+### Dialog
+
+Modal dialog component.
+
+**Usage:**
+
+```tsx components/molecules/dialog.tsx
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/molecules'
+
+<Dialog open={isOpen} onOpenChange={setIsOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Confirm Action</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to proceed?
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button onClick={handleConfirm}>Confirm</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+### Command
+
+Command palette / search component.
+
+**Usage:**
+
+```tsx
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/molecules'
+
+<Command>
+  <CommandInput placeholder="Search..." />
+  <CommandList>
+    <CommandEmpty>No results found.</CommandEmpty>
+    <CommandGroup heading="Suggestions">
+      <CommandItem onSelect={handleSelect}>Option 1</CommandItem>
+      <CommandItem onSelect={handleSelect}>Option 2</CommandItem>
+    </CommandGroup>
+  </CommandList>
+</Command>
+```
+
+### Toaster
+
+Toast notification container.
+
+**Usage:**
+
+```tsx components/molecules/toaster.tsx
+import { Toaster } from '@/components/molecules'
+
+// In root layout
+<Toaster />
+```
+
+## Specialized Components
+
+### TimelineGridTile
+
+Timeline event tile for schedule display.
+
+**Props Interface:**
+
+```typescript components/molecules/TimelineGridTile.tsx
+interface TimelineGridTileProps {
+  title: string
+  time: string
+  description?: string
+  color?: string
+  onClick?: () => void
+}
+```
+
+**Usage:**
+
+```tsx
+import TimelineGridTile from '@/components/molecules'
+
+<TimelineGridTile 
+  title="Opening Ceremony"
+  time="10:00 AM"
+  description="Welcome address and prayers"
+  color="bg-orange-500"
+  onClick={handleTileClick}
+/>
+```
+
+### IphoneMock
+
+iPhone device mockup wrapper.
+
+**Usage:**
+
+```tsx components/molecules/iphone-mock.tsx
+import IphoneMock from '@/components/molecules'
+
+<IphoneMock>
+  <YourAppContent />
+</IphoneMock>
+```
+
+### 3DPin
+
+3D pin effect component (from Aceternity UI).
+
+**Usage:**
+
+```tsx
+import { PinContainer } from '@/components/molecules/3d-pin'
+
+<PinContainer title="Hover Effect">
+  <div className="p-4">
+    Content with 3D pin effect
+  </div>
+</PinContainer>
+```
+
+## Form Integration Patterns
+
+### With react-hook-form
+
+```tsx
+import { useForm, Controller } from 'react-hook-form'
+import { PhoneInput } from '@/components/molecules'
+import { isValidPhoneNumber } from 'react-phone-number-input'
+
+const { control, handleSubmit } = useForm()
+
+<Controller
+  name="phone"
+  control={control}
+  rules={{
+    validate: (value) => isValidPhoneNumber(value) || 'Invalid phone'
+  }}
+  render={({ field }) => (
+    <PhoneInput 
+      value={field.value}
+      onChange={field.onChange}
+      defaultCountry="US"
+    />
+  )}
+/>
+```
+
+### With Zod Validation
+
+```typescript
+import { z } from 'zod'
+import { isValidPhoneNumber } from 'react-phone-number-input'
+
+const schema = z.object({
+  phone: z.string()
+    .min(1, 'Phone required')
+    .refine(isValidPhoneNumber, 'Invalid phone'),
+  country: z.string().min(1, 'Country required'),
+  date: z.date({ required_error: 'Date required' })
+})
+```
+
+## Animation Patterns
+
+Molecules frequently use Framer Motion:
+
+### Entrance Animations
+
+```tsx
+<motion.div
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: false }}
+  transition={{ delay: index * 0.1, duration: 0.6 }}
+>
+  {/* Card content */}
+</motion.div>
+```
+
+### Hover Effects
+
+```tsx
+<motion.div
+  whileHover={{ scale: 1.05 }}
+  whileTap={{ scale: 0.95 }}
+  className="cursor-pointer"
+>
+  {/* Interactive content */}
+</motion.div>
+```
+
+### Scroll-triggered Counters
+
+```tsx
+const count = useMotionValue(0)
+const rounded = useTransform(count, (latest) => Math.round(latest))
+
+useEffect(() => {
+  if (inView) {
+    const controls = animate(count, target, {
+      duration: 2,
+      ease: "easeOut"
+    })
+    return controls.stop
+  }
+}, [inView])
+```
+
+## Best Practices
+
+<Accordion title="Component Reusability">
+  Design molecules to be reusable across different contexts:
+  ```tsx
+  // Good - flexible and reusable
+  <ProgressCounter icon={Users} label="Participants" current={100} target={200} />
+  
+  // Avoid - too specific
+  <ParticipantCounter />  // Hard-coded for one use case
+  ```
+</Accordion>
+
+<Accordion title="Performance">
+  - Use lazy loading for heavy components
+  - Implement intersection observer for animations
+  - Memoize expensive calculations
+  - Optimize re-renders with React.memo
+</Accordion>
+
+<Accordion title="Accessibility">
+  - Include ARIA labels
+  - Support keyboard navigation
+  - Provide focus indicators
+  - Use semantic HTML
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Organisms" icon="layer-group" href="/components/organisms">
+    Learn about complex sections built from molecules
+  </Card>
+  <Card title="Atoms" icon="atom" href="/components/atoms">
+    Review the building blocks used in molecules
+  </Card>
+</CardGroup>

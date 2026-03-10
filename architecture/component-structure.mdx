@@ -1,0 +1,492 @@
+---
+title: Component Structure
+description: Deep dive into the atomic design pattern and component organization used in the NJ Rajat Mahotsav platform
+---
+
+## Atomic Design Pattern
+
+The NJ Rajat Mahotsav platform implements **Atomic Design** principles, organizing components into five distinct levels of complexity. This approach ensures scalability, reusability, and maintainability.
+
+<Note>
+  Import from index files when available for cleaner imports throughout the codebase.
+</Note>
+
+## Component Hierarchy
+
+```plaintext
+components/
+├── atoms/           # Basic UI primitives
+├── molecules/       # Simple component compositions
+├── organisms/       # Complex feature sections
+├── templates/       # Page layout structures
+└── ui/              # shadcn/ui components (separate for updates)
+```
+
+## Atoms: Basic Primitives
+
+Atoms are the smallest building blocks that cannot be broken down further while maintaining their purpose.
+
+### Example: Scroll to Top Button
+
+Location: `components/atoms/scroll-to-top.tsx`
+
+```tsx components/atoms/scroll-to-top.tsx
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { ArrowUp } from "lucide-react"
+import { FloatingButton } from "./floating-button"
+
+export function ScrollToTop() {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isDarkBackground, setIsDarkBackground] = useState(true)
+  const rafRef = useRef<number>()
+
+  useEffect(() => {
+    let ticking = false
+    
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setIsVisible(window.scrollY > 300)
+          
+          // Detect background color for contrast
+          if (rafRef.current) cancelAnimationFrame(rafRef.current)
+          rafRef.current = requestAnimationFrame(() => {
+            const element = document.elementFromPoint(50, window.innerHeight - 100)
+            if (element) {
+              const styles = window.getComputedStyle(element)
+              const bgColor = styles.backgroundColor
+              
+              if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                const rgb = bgColor.match(/\d+/g)
+                if (rgb) {
+                  const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000
+                  setIsDarkBackground(brightness < 128)
+                }
+              }
+            }
+          })
+          
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
+  const scrollToTop = () => {
+    document.documentElement.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+
+  return (
+    <FloatingButton
+      onClick={scrollToTop}
+      isDarkBackground={isDarkBackground}
+      isVisible={isVisible}
+      className="fixed bottom-6 right-6 z-40"
+      aria-label="Scroll to top"
+    >
+      <ArrowUp size={18} />
+    </FloatingButton>
+  )
+}
+```
+
+### Other Atom Examples
+
+<CardGroup cols={2}>
+  <Card title="Theme Provider" icon="palette">
+    `components/atoms/theme-provider.tsx`
+    
+    Wraps next-themes provider for light/dark mode
+  </Card>
+  
+  <Card title="Loading Screen" icon="spinner">
+    `components/atoms/loading-screen.tsx`
+    
+    Initial loading splash with audio consent
+  </Card>
+  
+  <Card title="Typewriter Effect" icon="keyboard">
+    `components/atoms/typewriter.tsx`
+    
+    Animated text typing effect
+  </Card>
+  
+  <Card title="Form Inputs" icon="input-text">
+    `components/atoms/input.tsx`, `textarea.tsx`, `checkbox.tsx`
+    
+    Basic form field components
+  </Card>
+</CardGroup>
+
+## Molecules: Simple Composites
+
+Molecules combine atoms to create functional UI components with a single, clear purpose.
+
+### Example: Guru Card
+
+Location: `components/molecules/guru-card.tsx`
+
+```tsx components/molecules/guru-card.tsx
+import { getCloudflareImage } from "@/lib/cdn-assets"
+
+interface GuruCardProps {
+  imageId: string
+  name: string
+  className?: string
+}
+
+export default function GuruCard({ imageId, name, className = "" }: GuruCardProps) {
+  return (
+    <div className={`relative w-72 sm:w-80 md:w-[26rem] h-[28rem] sm:h-[32rem] md:h-[34rem] rounded-2xl overflow-hidden group ${className}`}>
+      <div className="absolute inset-0 bg-gradient-to-t from-primary/30 to-transparent opacity-0 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity duration-300 pointer-events-none z-10" />
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-primary/60 via-primary/20 to-transparent p-[3px]">
+        <div className="w-full h-full bg-background rounded-2xl overflow-hidden relative">
+          <img
+            src={getCloudflareImage(imageId)}
+            alt={name}
+            className="w-full h-full object-cover grayscale"
+          />
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
+            <p className="text-white text-xl font-semibold text-center">{name}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+**Key Features:**
+- Uses Cloudflare image optimization
+- Hover effects with gradient overlays
+- Responsive sizing with Tailwind classes
+- Grayscale filter for consistent aesthetic
+
+### Other Molecule Examples
+
+<Tabs>
+  <Tab title="Form Components">
+    **Date Picker** (`components/molecules/registration-date-picker.tsx`)
+    
+    Uses react-day-picker with date-fns and chrono-node for natural language parsing
+    
+    **Phone Input** (`components/molecules/phone-input.tsx`)
+    
+    International phone number input with country selector
+    
+    **Country Selector** (`components/molecules/country-selector.tsx`)
+    
+    Dropdown for country selection
+  </Tab>
+  
+  <Tab title="Display Components">
+    **Event Card** (`components/molecules/event-card.tsx`)
+    
+    Displays individual event information
+    
+    **Schedule Card** (`components/molecules/schedule-card.tsx`)
+    
+    Shows event schedule details
+    
+    **Countdown Timer** (`components/molecules/countdown-timer.tsx`)
+    
+    Live countdown to event dates
+  </Tab>
+  
+  <Tab title="Interactive Components">
+    **Carousel** (`components/molecules/carousel.tsx`)
+    
+    Swipeable image carousel with controls
+    
+    **Dialog** (`components/molecules/dialog.tsx`)
+    
+    Modal dialog wrapper
+    
+    **3D Pin** (`components/molecules/3d-pin.tsx`)
+    
+    Interactive 3D card effect
+  </Tab>
+</Tabs>
+
+## Organisms: Complex Sections
+
+Organisms are sophisticated components that combine molecules and atoms to form complete sections of the interface.
+
+### Example: Navigation System
+
+Location: `components/organisms/navigation.tsx`
+
+```tsx components/organisms/navigation.tsx
+"use client"
+
+import type React from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import { usePathname } from "next/navigation"
+import { Home, ScrollText, ClipboardPen, CalendarDays } from "lucide-react"
+import { NavBar } from "@/components/organisms/tubelight-navbar"
+import { CDN_ASSETS } from "@/lib/cdn-assets"
+
+type NavigationItem = {
+  icon: React.ComponentType<any>
+  label: string
+  href: string
+  gradient: string
+  iconColor: string
+  subItems?: NavigationSubItem[]
+}
+
+const menuItems: NavigationItem[] = [
+  {
+    icon: Home,
+    label: "Home",
+    href: "/",
+    gradient: "radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(37,99,235,0.06) 50%, rgba(29,78,216,0) 100%)",
+    iconColor: "text-blue-500",
+  },
+  {
+    icon: ScrollText,
+    label: "Timeline",
+    href: "/timeline",
+    gradient: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, rgba(234,88,12,0.06) 50%, rgba(194,65,12,0) 100%)",
+    iconColor: "text-orange-500",
+  },
+  // ... more menu items
+]
+
+export function Navigation() {
+  const [mounted, setMounted] = useState(false)
+  const [availableInlineWidth, setAvailableInlineWidth] = useState<number>()
+  const navRowRef = useRef<HTMLDivElement | null>(null)
+  const logosGroupRef = useRef<HTMLDivElement | null>(null)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const navRow = navRowRef.current
+    const logosGroup = logosGroupRef.current
+    if (!navRow || !logosGroup) return
+
+    const recalculateAvailableWidth = () => {
+      const computed = window.getComputedStyle(navRow)
+      const gapValue = Number.parseFloat(computed.columnGap || computed.gap || "0")
+      const rowWidth = navRow.clientWidth
+      const logosWidth = logosGroup.getBoundingClientRect().width
+      const reservedSpace = gapValue + 24
+      const nextWidth = Math.max(56, Math.floor(rowWidth - logosWidth - reservedSpace))
+      setAvailableInlineWidth(nextWidth)
+    }
+
+    recalculateAvailableWidth()
+
+    const observer = new ResizeObserver(recalculateAvailableWidth)
+    observer.observe(navRow)
+    observer.observe(logosGroup)
+    window.addEventListener("resize", recalculateAvailableWidth)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", recalculateAvailableWidth)
+    }
+  }, [mounted, pathname])
+
+  const isHomePage = pathname === '/'
+
+  return (
+    <nav 
+      data-navbar
+      className={`${isHomePage ? 'absolute' : 'relative'} w-full z-50 py-3 transition-all duration-300 ${mounted ? 'opacity-100' : 'opacity-0'} bg-transparent`}
+    >
+      <div ref={navRowRef} className="flex items-center justify-between w-full gap-2 sm:gap-4">
+        {/* Tubelight Navbar */}
+        <div className="flex-shrink-0">
+          <NavBar items={menuItems} availableInlineWidth={availableInlineWidth} />
+        </div>
+
+        {/* Center Spacer */}
+        <div className="flex-1 min-w-0"></div>
+
+        {/* Logos */}
+        <div ref={logosGroupRef} className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <img src={CDN_ASSETS.mainLogoNoText} alt="Main Logo" />
+          <div className="w-px bg-white/40" />
+          <img src={CDN_ASSETS.maningarLogo} alt="Maninagar Logo" />
+        </div>
+      </div>
+    </nav>
+  )
+}
+```
+
+**Key Features:**
+- Dynamic width calculation with ResizeObserver
+- Responsive menu item rendering
+- Supabase auth integration for admin access
+- Tubelight navbar with overflow detection
+
+### Other Organism Examples
+
+<CardGroup cols={2}>
+  <Card title="Seva Submission Form" icon="clipboard">
+    `components/organisms/seva-submission-form.tsx`
+    
+    Multi-step form with react-hook-form and zod validation
+  </Card>
+  
+  <Card title="Image Carousel Modal" icon="images">
+    `components/organisms/image-carousel-modal.tsx`
+    
+    Full-screen image gallery with swipe gestures
+  </Card>
+  
+  <Card title="Video Section" icon="video">
+    `components/organisms/video-section.tsx`
+    
+    Custom video player with controls
+  </Card>
+  
+  <Card title="Timeline" icon="timeline">
+    `components/organisms/MobileTimeline.tsx`
+    
+    Interactive event schedule display
+  </Card>
+  
+  <Card title="Guru Carousel" icon="users">
+    `components/organisms/guru-carousel.tsx`
+    
+    Swipeable carousel of guru cards
+  </Card>
+  
+  <Card title="Sticky Footer" icon="layout">
+    `components/organisms/sticky-footer.tsx`
+    
+    Persistent footer with social links
+  </Card>
+</CardGroup>
+
+## Templates: Page Layouts
+
+Templates define page-level structures. Currently minimal as the project focuses on component composition.
+
+Location: `components/templates/`
+
+<Note>
+  Most page layouts are defined directly in the app directory using Next.js 15 conventions.
+</Note>
+
+## UI Components (shadcn/ui)
+
+Separated for easy updates and framework independence:
+
+```plaintext
+components/ui/
+├── button.tsx           # Button component
+├── accordion.tsx        # Accordion/collapse component
+├── shadcn-io/          # Additional shadcn components
+├── skiper-ui/          # Custom registry components
+└── ...
+```
+
+<Tabs>
+  <Tab title="shadcn/ui">
+    **Style:** New York
+    
+    **Mode:** React Server Components enabled
+    
+    Components use Radix UI primitives for accessibility and can be customized through Tailwind classes.
+  </Tab>
+  
+  <Tab title="Custom Registries">
+    Additional component libraries:
+    
+    - **@magicui** - https://magicui.design
+    - **@aceternity** - https://ui.aceternity.com
+    - **@skiper-ui** - https://skiper-ui.com
+    
+    These provide specialized components for advanced UI effects.
+  </Tab>
+</Tabs>
+
+## Component Import Patterns
+
+### Direct Imports
+
+```tsx
+import { Navigation } from "@/components/organisms/navigation"
+import { GuruCard } from "@/components/molecules/guru-card"
+import { ScrollToTop } from "@/components/atoms/scroll-to-top"
+```
+
+### Index File Imports
+
+When available, prefer index file imports:
+
+```tsx
+import { Button, Input, Label } from "@/components/ui"
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Follow Atomic Principles">
+    Place components at the appropriate level:
+    - Atoms: Single-purpose, no internal composition
+    - Molecules: Combine atoms with clear purpose
+    - Organisms: Complex features with business logic
+  </Step>
+  
+  <Step title="Use TypeScript">
+    Define proper prop interfaces:
+    
+    ```tsx
+    interface ComponentProps {
+      title: string
+      description?: string
+      onAction: () => void
+    }
+    ```
+  </Step>
+  
+  <Step title="Client vs Server Components">
+    Use `"use client"` only when needed:
+    - Event handlers
+    - useState/useEffect
+    - Browser APIs
+    
+    Keep server components for data fetching and static content.
+  </Step>
+  
+  <Step title="Optimize Performance">
+    - Use React.memo for expensive renders
+    - Implement proper cleanup in useEffect
+    - Use requestAnimationFrame for animations
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="State Management" href="/architecture/state-management">
+    Learn about Context API and custom hooks
+  </Card>
+  
+  <Card title="Styling System" href="/architecture/styling-system">
+    Explore Tailwind configuration and CSS variables
+  </Card>
+</CardGroup>

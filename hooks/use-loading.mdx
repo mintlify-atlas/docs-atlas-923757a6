@@ -1,0 +1,192 @@
+---
+title: useLoading
+description: A React hook for accessing and managing global loading state across the application
+---
+
+## Overview
+
+The `useLoading` hook provides access to the global loading state managed by the `LoadingProvider`. It's used throughout the NJ Rajat Mahotsav application to control the loading screen display and coordinate animations.
+
+<Note>
+This hook must be used within a component wrapped by `LoadingProvider`. The provider is configured at the root layout level in the application.
+</Note>
+
+## Import
+
+```typescript
+import { useLoading } from '@/hooks/use-loading'
+```
+
+## Usage
+
+### Basic Usage
+
+```typescript
+import { useLoading } from '@/hooks/use-loading'
+
+export default function MyComponent() {
+  const { isLoading, setIsLoading } = useLoading()
+
+  return (
+    <div>
+      {isLoading ? 'Loading...' : 'Content ready!'}
+    </div>
+  )
+}
+```
+
+### Loading Screen Implementation
+
+From `components/atoms/loading-screen.tsx:11`:
+
+```typescript
+import { useLoading } from '@/hooks/use-loading'
+import { useAudioContext } from '@/contexts/audio-context'
+
+export default function LoadingScreen() {
+  const { isLoading, setIsLoading } = useLoading()
+  const { play, grantConsent } = useAudioContext()
+
+  const handleEnter = (withAudio: boolean) => {
+    if (withAudio) {
+      grantConsent()
+      play()
+    }
+    setIsLoading(false)
+  }
+
+  return (
+    <AnimatePresence>
+      {isLoading && (
+        <motion.div
+          initial={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.8 }}
+        >
+          {/* Loading screen content */}
+          <button onClick={() => handleEnter(true)}>Enter with Audio</button>
+          <button onClick={() => handleEnter(false)}>Enter Silently</button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+```
+
+### Coordinating Animations
+
+From `components/organisms/landing-page.tsx:14`:
+
+```typescript
+import { useLoading } from '@/hooks/use-loading'
+
+export default function TitleSection({ targetDate = "2026-08-02T00:00:00" }) {
+  const { isLoading } = useLoading()
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={!isLoading ? { opacity: 1 } : { opacity: 0 }}
+      transition={{ duration: 1.2, ease: "easeOut" }}
+    >
+      {/* Content appears after loading completes */}
+    </motion.div>
+  )
+}
+```
+
+## Return Value
+
+The hook returns an object with the following properties:
+
+<ResponseField name="isLoading" type="boolean">
+  Boolean indicating whether the application is in a loading state. When `true`, the loading screen is displayed.
+</ResponseField>
+
+<ResponseField name="setIsLoading" type="(value: boolean) => void">
+  Function to update the loading state. Pass `false` to hide the loading screen and show the main application content.
+  
+  **Parameters:**
+  - `value`: Boolean to set the loading state
+</ResponseField>
+
+## Provider Setup
+
+The `LoadingProvider` must wrap your application at a high level:
+
+```typescript
+import { LoadingProvider } from '@/hooks/use-loading'
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <LoadingProvider>
+          {children}
+        </LoadingProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+## Implementation Details
+
+### Context Structure
+
+The hook uses React Context to provide global state:
+
+```typescript
+interface LoadingContextType {
+  isLoading: boolean
+  setIsLoading: (value: boolean) => void
+}
+```
+
+### Error Handling
+
+The hook throws an error if used outside the provider:
+
+```typescript
+if (!context) throw new Error('useLoading must be used within LoadingProvider')
+```
+
+This ensures developers are notified immediately if the hook is used incorrectly.
+
+## Use Cases
+
+- **Initial page load**: Display loading screen while assets and data load
+- **User consent**: Gate content behind audio permission or other user choices
+- **Animation coordination**: Delay content animations until loading completes
+- **Route transitions**: Show loading state during page navigation (with router integration)
+
+## Common Patterns
+
+### Audio Consent Flow
+
+The most common pattern in the NJ Rajat Mahotsav app combines loading state with audio consent:
+
+1. App starts with `isLoading: true`
+2. Loading screen displays with audio choice buttons
+3. User selects audio preference (Audio or Silent)
+4. `setIsLoading(false)` is called
+5. Loading screen animates out, main content animates in
+
+### Content Visibility
+
+Use loading state to control when content becomes visible:
+
+```typescript
+<motion.div
+  initial={{ y: 60, opacity: 0 }}
+  animate={!isLoading ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
+  transition={{ duration: 0.8 }}
+>
+  {/* Content */}
+</motion.div>
+```
+
+## Related
+
+- [AudioContext](/contexts/audio-context) - Works together with loading for user consent
+- [LoadingScreen](/components/atoms/loading-screen) - Component that uses this hook

@@ -1,0 +1,325 @@
+---
+title: Event Registration
+description: Multi-step form system for registering attendees for the Rajat Mahotsav event with validation, international phone support, and Supabase integration.
+---
+
+## Overview
+
+The event registration system allows guests to register for the NJ Rajat Mahotsav (July 27 - August 2, 2026). Built with React Hook Form, Zod validation, and Supabase backend, it features international phone number support, date range selection, and automatic duplicate detection.
+
+## User Flow
+
+<Steps>
+  <Step title="Navigate to Registration">
+    Users access the registration form at `/registration`
+  </Step>
+  
+  <Step title="Fill Personal Information">
+    Complete name, age, ghaam (village), country, and mandal fields with real-time validation
+  </Step>
+  
+  <Step title="Enter Contact Details">
+    Provide email and phone number with international format support
+  </Step>
+  
+  <Step title="Select Travel Dates">
+    Choose arrival and departure dates within the event window (July 27 - Aug 2, 2026)
+  </Step>
+  
+  <Step title="Submit & Confirmation">
+    Form validates and saves to Supabase, showing success toast notification
+  </Step>
+</Steps>
+
+## Form Schema
+
+The registration form uses Zod for comprehensive validation:
+
+```typescript title="app/registration/page.tsx"
+const FormSchema = z.object({
+  firstName: z.string()
+    .min(1, "First name is required")
+    .regex(/^[A-Za-z]+$/, "First name must contain only letters"),
+  middleName: z.string()
+    .optional()
+    .refine((val) => !val || /^[A-Za-z]+$/.test(val), "Middle name must contain only letters"),
+  lastName: z.string()
+    .min(1, "Last name is required")
+    .regex(/^[A-Za-z]+$/, "Last name must contain only letters"),
+  age: z.string()
+    .min(1, "Age is required")
+    .refine((val) => {
+      const num = parseInt(val)
+      return !isNaN(num) && num >= 1 && num <= 99
+    }, "Age must be a number between 1 and 99"),
+  ghaam: z.string()
+    .min(1, "Ghaam is required")
+    .regex(/^[A-Za-z]+$/, "Ghaam must contain only letters"),
+  country: z.string().min(1, "Country is required"),
+  mandal: z.string().min(1, "Mandal is required"),
+  email: emailSchema, // Custom schema with TLD validation
+  phoneCountryCode: z.string().min(1, "Phone country code is required"),
+  phone: z.string()
+    .min(1, "Phone number is required")
+    .refine((value) => value && isValidPhoneNumber(value), {
+      message: "Invalid phone number",
+    }),
+  dateRange: z.object({
+    start: z.any().refine((val) => val !== null, "Arrival date is required"),
+    end: z.any().refine((val) => val !== null, "Departure date is required"),
+  }).refine((data) => {
+    if (data.start && data.end) {
+      return data.end.compare(data.start) >= 0
+    }
+    return true
+  }, {
+    message: "Departure date must be on or after arrival date",
+  }),
+})
+```
+
+## Email Validation
+
+Custom email validation prevents typos by checking against valid TLDs:
+
+```typescript title="lib/email-validation.ts"
+import { z } from "zod"
+import { TLDs } from "global-tld-list"
+
+function extractTld(email: string): string | null {
+  const atIndex = email.lastIndexOf("@")
+  if (atIndex === -1) return null
+  const domain = email.slice(atIndex + 1).toLowerCase()
+  const lastDot = domain.lastIndexOf(".")
+  if (lastDot === -1) return null
+  return domain.slice(lastDot + 1)
+}
+
+export const emailSchema = z
+  .string()
+  .min(1, "Email is required")
+  .email("Invalid email address")
+  .refine(
+    (email) => {
+      const tld = extractTld(email)
+      if (!tld) return false
+      return TLDs.isValid(tld)
+    },
+    {
+      message:
+        "Please check your email domain (e.g. use .com not .clm). Enter a valid email address.",
+    }
+  )
+```
+
+<Note>
+The email schema uses the `global-tld-list` package to validate top-level domains, preventing common typos like `.clm` instead of `.com`.
+</Note>
+
+## Duplicate Detection
+
+The system automatically detects and updates existing registrations:
+
+```typescript title="app/registration/page.tsx"
+const onSubmit = async (data: FormData) => {
+  setIsSubmitting(true)
+
+  try {
+    let nationalNumber = data.phone
+    if (data.phone && isValidPhoneNumber(data.phone)) {
+      try {
+        const parsed = parsePhoneNumber(data.phone)
+        if (parsed) {
+          nationalNumber = parsed.nationalNumber
+        }
+      } catch {
+        // Failed to parse phone number, use as-is
+      }
+    }
+
+    const dbData = {
+      first_name: data.firstName,
+      middle_name: data.middleName || null,
+      last_name: data.lastName,
+      age: parseInt(data.age),
+      ghaam: data.ghaam,
+      country: data.country,
+      mandal: data.mandal,
+      email: data.email,
+      phone_country_code: data.phoneCountryCode,
+      mobile_number: nationalNumber,
+      arrival_date: data.dateRange.start?.toString(),
+      departure_date: data.dateRange.end?.toString()
+    }
+
+    // Check if record exists
+    const { data: existingRecord } = await supabase
+      .from('registrations')
+      .select('id')
+      .eq('first_name', dbData.first_name)
+      .eq('age', dbData.age)
+      .eq('email', dbData.email)
+      .eq('mobile_number', dbData.mobile_number)
+      .maybeSingle()
+
+    let error = null
+
+    if (existingRecord) {
+      // Update existing record
+      const { error: updateError } = await supabase
+        .from('registrations')
+        .update(dbData)
+        .eq('id', existingRecord.id)
+      error = updateError
+    } else {
+      // Insert new record
+      const { error: insertError } = await supabase
+        .from('registrations')
+        .insert([dbData])
+      error = insertError
+    }
+
+    if (!error) {
+      const isUpdate = existingRecord !== null
+      toast({
+        title: isUpdate ? `Updated existing registration, ${data.firstName}!` : `Successfully registered, ${data.firstName}!`,
+        description: "Jay Shree Swaminarayan",
+        className: "bg-green-500 text-white border-green-400 shadow-xl font-medium",
+      })
+    }
+  } catch (error) {
+    toast({
+      title: "Registration failed",
+      description: "Please check your connection and try again.",
+      className: "bg-red-500 text-white border-red-400 shadow-xl font-medium",
+    })
+  } finally {
+    setTimeout(() => setIsSubmitting(false), 2000)
+  }
+}
+```
+
+<Warning>
+Registrations with the same combination of **first name, age, email, and phone number** will overwrite previous registrations. This is by design to allow users to update their information.
+</Warning>
+
+## International Phone Support
+
+The form includes `react-phone-number-input` with automatic country detection:
+
+```typescript title="app/registration/page.tsx"
+const getPhoneCountryFromCountry = (country: string) => {
+  const countryMap: { [key: string]: string } = {
+    "australia": "AU",
+    "canada": "CA",
+    "england": "GB",
+    "india": "IN",
+    "kenya": "KE",
+    "usa": "US"
+  }
+  return countryMap[country] || "US"
+}
+
+// In country selection handler:
+onChange={(value) => {
+  field.onChange(value)
+  updateFormData("country", value)
+
+  // Set phone country based on selected country
+  const newPhoneCountry = getPhoneCountryFromCountry(value)
+  setPhoneCountry(newPhoneCountry)
+}}
+```
+
+## Mandal Logic
+
+Some countries have fixed mandals, while others require selection:
+
+```typescript title="app/registration/page.tsx"
+// Auto-set mandal for specific countries
+if (value === "india") {
+  updateFormData("mandal", "Maninagar")
+  setValue("mandal", "Maninagar", { shouldValidate: true })
+} else if (value === "australia") {
+  updateFormData("mandal", "Perth")
+  setValue("mandal", "Perth", { shouldValidate: true })
+} else if (value === "canada") {
+  updateFormData("mandal", "Toronto")
+  setValue("mandal", "Toronto", { shouldValidate: true })
+} else if (value === "kenya") {
+  updateFormData("mandal", "Nairobi")
+  setValue("mandal", "Nairobi", { shouldValidate: true })
+} else {
+  updateFormData("mandal", "")
+  setValue("mandal", "", { shouldValidate: true })
+}
+
+const getMandals = (country: string) => {
+  const mandalOptions = {
+    "england": ["Bolton", "London"],
+    "usa": ["Alabama", "California", "Chicago", "Delaware", "Georgia", 
+            "Horseheads", "Kentucky", "New Jersey", "Ocala", "Ohio", 
+            "Seattle", "Tennessee", "Virginia"]
+  }
+  return mandalOptions[country as keyof typeof mandalOptions] || []
+}
+```
+
+## Components Used
+
+<CardGroup cols={2}>
+  <Card title="LazyPhoneInput" icon="phone">
+    Lazy-loaded international phone input with country flags
+  </Card>
+  
+  <Card title="LazyDatePicker" icon="calendar">
+    Date range picker for arrival/departure dates
+  </Card>
+  
+  <Card title="CountrySelector" icon="globe">
+    Dropdown for country selection with mandal auto-population
+  </Card>
+  
+  <Card title="Toast Notifications" icon="bell">
+    Success/error feedback using shadcn/ui toast component
+  </Card>
+</CardGroup>
+
+## Database Schema
+
+The registration data is stored in Supabase:
+
+```sql
+CREATE TABLE registrations (
+  id SERIAL PRIMARY KEY,
+  first_name TEXT NOT NULL,
+  middle_name TEXT,
+  last_name TEXT NOT NULL,
+  age INTEGER NOT NULL,
+  ghaam TEXT NOT NULL,
+  country TEXT NOT NULL,
+  mandal TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_country_code TEXT NOT NULL,
+  mobile_number TEXT NOT NULL,
+  arrival_date TEXT,
+  departure_date TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+## Styling
+
+The form uses custom CSS theme classes from `registration-theme.css`:
+
+- `reg-page-bg` - Gradient background
+- `reg-card` - Form card styling
+- `reg-input` - Input field styling
+- `reg-button` - Submit button with gradient
+- `reg-error-text` - Error message styling
+- `reg-label` - Form label styling
+
+## Related Features
+
+- [Admin Dashboard](/features/admin-dashboard) - View and manage registrations
+- [Event Schedule](/features/event-schedule) - Display event dates

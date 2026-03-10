@@ -1,0 +1,543 @@
+---
+title: Atoms
+description: Basic building blocks and primitive components in the NJ Rajat Mahotsav platform
+---
+
+# Atoms
+
+Atoms are the foundational building blocks of the UI. These are the smallest, most reusable components that cannot be broken down further.
+
+## Overview
+
+The `/components/atoms` directory contains 18 primitive components organized into categories:
+
+<CardGroup cols={3}>
+  <Card title="Form Controls" icon="input-text">
+    Button, Input, Label, Checkbox, Textarea, Select
+  </Card>
+  <Card title="Layout & Container" icon="square">
+    Card, ScrollArea, Popover
+  </Card>
+  <Card title="Feedback & Effects" icon="sparkles">
+    LoadingScreen, Toast, Typewriter, TagBadge
+  </Card>
+</CardGroup>
+
+## Form Controls
+
+### Button
+
+A versatile button component with multiple variants and sizes, built with class-variance-authority (CVA).
+
+**Props Interface:**
+
+```typescript components/atoms/button.tsx
+type ButtonProps = React.ComponentProps<"button"> & 
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+  }
+
+// Variants
+variant: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+size: "default" | "sm" | "lg" | "icon"
+```
+
+**Usage:**
+
+```tsx
+import { Button } from '@/components/atoms'
+
+<Button variant="default" size="lg">
+  Submit Form
+</Button>
+
+<Button variant="outline" size="sm">
+  Cancel
+</Button>
+
+<Button variant="ghost" size="icon">
+  <Icon />
+</Button>
+```
+
+### Input
+
+Standard text input component with consistent styling.
+
+**Props:** Extends `React.InputHTMLAttributes<HTMLInputElement>`
+
+**Usage:**
+
+```tsx components/atoms/input.tsx
+import { Input } from '@/components/atoms'
+
+<Input 
+  type="text" 
+  placeholder="Enter your name" 
+  className="reg-input rounded-md"
+/>
+```
+
+### Label
+
+Accessible label component for form fields, built with Radix UI.
+
+**Props:** Extends `React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>`
+
+**Usage:**
+
+```tsx
+import { Label } from '@/components/atoms'
+
+<Label htmlFor="firstName" className="reg-label">
+  First Name *
+</Label>
+```
+
+### Checkbox
+
+Checkbox component with custom styling.
+
+**Props:** Extends `React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>`
+
+**Usage:**
+
+```tsx
+import { Checkbox } from '@/components/atoms'
+
+<Checkbox 
+  id="terms" 
+  checked={isChecked}
+  onCheckedChange={setIsChecked}
+  className="border-orange-300 data-[state=checked]:bg-orange-500"
+/>
+```
+
+### Select
+
+Dropdown select component with trigger, content, and item subcomponents.
+
+**Usage:**
+
+```tsx components/atoms/select.tsx
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/atoms'
+
+<Select value={country} onValueChange={setCountry}>
+  <SelectTrigger className="reg-input rounded-md">
+    <SelectValue placeholder="Select country" />
+  </SelectTrigger>
+  <SelectContent className="reg-popover rounded-xl">
+    <SelectItem value="usa">United States</SelectItem>
+    <SelectItem value="india">India</SelectItem>
+  </SelectContent>
+</Select>
+```
+
+### Textarea
+
+Multi-line text input component.
+
+**Props:** Extends `React.TextareaHTMLAttributes<HTMLTextAreaElement>`
+
+**Usage:**
+
+```tsx
+import { Textarea } from '@/components/atoms'
+
+<Textarea 
+  placeholder="Enter description" 
+  rows={4}
+/>
+```
+
+## Layout Components
+
+### Card
+
+Container component with header, content, footer, title, and description subcomponents.
+
+**Usage:**
+
+```tsx components/atoms/card.tsx
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/atoms'
+
+<Card className="reg-card rounded-3xl">
+  <CardHeader className="text-center">
+    <CardTitle className="text-2xl font-semibold">
+      Registration Form
+    </CardTitle>
+    <CardDescription>
+      Please fill in your details
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    {/* Form fields */}
+  </CardContent>
+  <CardFooter>
+    <Button>Submit</Button>
+  </CardFooter>
+</Card>
+```
+
+### ScrollArea
+
+Custom scrollable area with styled scrollbars using Radix UI.
+
+**Props:** Extends `React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>`
+
+**Usage:**
+
+```tsx
+import { ScrollArea } from '@/components/atoms'
+
+<ScrollArea className="h-72 w-full rounded-md border">
+  <div className="p-4">
+    {/* Scrollable content */}
+  </div>
+</ScrollArea>
+```
+
+### Popover
+
+Overlay component for dropdowns and tooltips.
+
+**Usage:**
+
+```tsx components/atoms/popover.tsx
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/atoms'
+
+<Popover>
+  <PopoverTrigger asChild>
+    <Button variant="outline">Open</Button>
+  </PopoverTrigger>
+  <PopoverContent className="w-80">
+    <div className="space-y-2">
+      <h4 className="font-medium">Settings</h4>
+      <p className="text-sm">Configure your preferences</p>
+    </div>
+  </PopoverContent>
+</Popover>
+```
+
+## Feedback & Effects
+
+### LoadingScreen
+
+Full-screen loading overlay with audio consent dialog, displayed on initial page load.
+
+**Features:**
+- Animated entrance/exit with Framer Motion
+- Shader background effect
+- Bilingual text (English & Gujarati)
+- Audio consent buttons
+- Loading progress indicator
+
+**Props Interface:**
+
+```typescript components/atoms/loading-screen.tsx
+// Uses context hooks internally:
+const { isLoading, setIsLoading } = useLoading()
+const { play, grantConsent } = useAudioContext()
+```
+
+**Usage:**
+
+```tsx
+import LoadingScreen from '@/components/atoms'
+
+// Used in root layout - no props required
+<LoadingScreen />
+```
+
+**Implementation Details:**
+
+```tsx components/atoms/loading-screen.tsx
+const handleEnter = (withAudio: boolean) => {
+  if (withAudio) {
+    grantConsent()
+    play()
+  }
+  setIsLoading(false)
+}
+
+<motion.div
+  initial={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+  exit={{ 
+    opacity: 0, 
+    scale: 0.8, 
+    filter: 'blur(10px)',
+    rotateY: 15
+  }}
+  transition={{ duration: 0.8 }}
+>
+  <ShaderBackground>
+    {/* Loading content */}
+  </ShaderBackground>
+</motion.div>
+```
+
+### Typewriter
+
+Animated text effect that types characters one by one.
+
+**Props Interface:**
+
+```typescript components/atoms/typewriter.tsx
+interface TypewriterProps {
+  text: string
+  speed?: number        // Default: 100ms
+  className?: string
+}
+```
+
+**Usage:**
+
+```tsx
+import Typewriter from '@/components/atoms'
+
+<Typewriter 
+  text="Welcome to NJ Rajat Mahotsav" 
+  speed={75}
+  className="text-4xl font-bold"
+/>
+```
+
+### ScrollToTop
+
+Floating button that appears after scrolling, with adaptive styling based on background color.
+
+**Features:**
+- Appears after 300px scroll
+- Detects background brightness
+- Smooth scroll animation
+- Optimized with RAF (requestAnimationFrame)
+
+**Usage:**
+
+```tsx components/atoms/scroll-to-top.tsx
+import { ScrollToTop } from '@/components/atoms'
+
+// Used in root layout - no props required
+<ScrollToTop />
+```
+
+**Implementation:**
+
+```tsx
+const scrollToTop = () => {
+  document.documentElement.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
+}
+
+<FloatingButton
+  onClick={scrollToTop}
+  isDarkBackground={isDarkBackground}
+  isVisible={isVisible}
+  className="fixed bottom-6 right-6 z-40"
+>
+  <ArrowUp size={18} />
+</FloatingButton>
+```
+
+### FloatingButton
+
+Reusable floating button with adaptive styling.
+
+**Props Interface:**
+
+```typescript components/atoms/floating-button.tsx
+interface FloatingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  isDarkBackground: boolean
+  isVisible: boolean
+}
+```
+
+**Usage:**
+
+```tsx
+import { FloatingButton } from '@/components/atoms'
+
+<FloatingButton
+  isDarkBackground={true}
+  isVisible={showButton}
+  onClick={handleClick}
+>
+  <Icon />
+</FloatingButton>
+```
+
+### AudioChoiceButton
+
+Specialized button for audio consent on loading screen.
+
+**Props Interface:**
+
+```typescript components/atoms/audio-choice-button.tsx
+interface AudioChoiceButtonProps {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  delay: number        // Animation delay
+}
+```
+
+**Usage:**
+
+```tsx
+import { AudioChoiceButton } from '@/components/atoms'
+
+<AudioChoiceButton
+  icon={Volume2}
+  label="Audio"
+  onClick={() => handleEnter(true)}
+  delay={0.5}
+/>
+```
+
+### TagBadge
+
+Colored badge for event tags and categories.
+
+**Props Interface:**
+
+```typescript components/atoms/tag-badge.tsx
+interface TagBadgeProps {
+  tag: string
+  onClick?: () => void
+  isActive?: boolean
+}
+```
+
+**Usage:**
+
+```tsx
+import { TagBadge } from '@/components/atoms'
+
+<TagBadge 
+  tag="Festival" 
+  isActive={selectedTag === 'Festival'}
+  onClick={() => setSelectedTag('Festival')}
+/>
+```
+
+### Toast
+
+Notification component for user feedback.
+
+**Usage:**
+
+```tsx
+import { useToast } from '@/hooks/use-toast'
+
+const { toast } = useToast()
+
+toast({
+  title: "Success!",
+  description: "Your form has been submitted.",
+  className: "bg-green-500 text-white"
+})
+```
+
+## Utility Components
+
+### ThemeProvider
+
+Context provider for theme management (forced to light mode in this project).
+
+**Usage:**
+
+```tsx components/atoms/theme-provider.tsx
+import { ThemeProvider } from '@/components/atoms'
+
+<ThemeProvider forcedTheme="light">
+  {children}
+</ThemeProvider>
+```
+
+### RegularLogo
+
+Static logo component.
+
+**Usage:**
+
+```tsx
+import { RegularLogo } from '@/components/atoms'
+
+<RegularLogo />
+```
+
+## Styling Patterns
+
+All atoms use consistent Tailwind patterns:
+
+### Custom CSS Classes
+
+```css
+/* Registration theme (registration-theme.css) */
+.reg-input {
+  @apply h-14 text-base bg-white/60 border-orange-200 text-gray-800;
+}
+
+.reg-label {
+  @apply text-base font-semibold text-gray-800;
+}
+
+.reg-button {
+  @apply bg-gradient-to-br from-orange-500 to-red-500 text-white font-bold;
+}
+```
+
+### Color Palette
+
+```css
+/* Preset colors from Tailwind config */
+preset-deep-navy: #0D132D
+preset-navy-accent: #1E1F3C
+preset-zodiac-blue: #0F2847
+preset-red: #B50000
+preset-light-gray: #EEF0F2
+```
+
+## Best Practices
+
+<Accordion title="Component Composition">
+  Prefer composition over configuration:
+  ```tsx
+  // Good
+  <Button variant="outline" size="sm">Cancel</Button>
+  
+  // Avoid
+  <Button config={{ variant: 'outline', size: 'sm' }}>Cancel</Button>
+  ```
+</Accordion>
+
+<Accordion title="Type Safety">
+  Always use TypeScript interfaces:
+  ```typescript
+  interface MyComponentProps {
+    title: string
+    onClick?: () => void
+    className?: string
+  }
+  ```
+</Accordion>
+
+<Accordion title="Accessibility">
+  - Use semantic HTML elements
+  - Include aria-labels for icon buttons
+  - Leverage Radix UI for accessible primitives
+  - Support keyboard navigation
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Molecules" icon="cube" href="/components/molecules">
+    Learn about composite components that combine atoms
+  </Card>
+  <Card title="Organisms" icon="layer-group" href="/components/organisms">
+    Explore complex sections built from molecules and atoms
+  </Card>
+</CardGroup>

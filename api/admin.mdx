@@ -1,0 +1,590 @@
+---
+title: 'Admin API'
+description: 'Administrative endpoints for registration management and statistics'
+---
+
+## Overview
+
+The Admin API provides authenticated endpoints for managing and analyzing event registrations. All endpoints require authentication with an `@nj.sgadi.us` domain email address.
+
+<Warning>
+All admin endpoints verify user authentication and domain. Requests without proper credentials will return 401 (Unauthorized) or 403 (Forbidden) responses.
+</Warning>
+
+## Authentication
+
+Every admin endpoint follows this authentication pattern:
+
+<CodeGroup>
+
+```typescript Authentication Flow
+import { createClient } from "@/utils/supabase/server"
+import { isAdminDomainUser } from "@/lib/admin-auth"
+
+const supabase = await createClient()
+const { data: { user } } = await supabase.auth.getUser()
+
+if (!user) {
+  return NextResponse.json(
+    { error: "Unauthorized", message: "Sign in required" },
+    { status: 401 }
+  )
+}
+
+if (!isAdminDomainUser(user)) {
+  return NextResponse.json(
+    { error: "Forbidden", message: "Admin domain (@nj.sgadi.us) required" },
+    { status: 403 }
+  )
+}
+```
+
+</CodeGroup>
+
+## Get Registration Statistics
+
+Retrieve aggregated statistics about registrations within a date range.
+
+### Endpoint
+
+```
+GET /api/admin/stats
+```
+
+### Query Parameters
+
+<ParamField query="start_date" type="string" default="2026-07-23">
+  Start date (inclusive) in ISO format (YYYY-MM-DD)
+</ParamField>
+
+<ParamField query="end_date" type="string" default="2026-08-08">
+  End date (inclusive) in ISO format (YYYY-MM-DD)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates successful operation
+</ResponseField>
+
+<ResponseField name="stats" type="object">
+  Statistics object returned by the `get_registrations_stats` RPC function
+</ResponseField>
+
+### Implementation
+
+<CodeGroup>
+
+```typescript app/api/admin/stats/route.ts
+import { REGISTRATION_DATE_RANGE } from "@/lib/registration-date-range"
+
+export async function GET(request: Request) {
+  const headers = new Headers()
+  headers.set("Cache-Control", "no-store, max-age=0")
+
+  // ... authentication checks ...
+
+  const { searchParams } = new URL(request.url)
+  const startDate = searchParams.get("start_date") ?? REGISTRATION_DATE_RANGE.start
+  const endDate = searchParams.get("end_date") ?? REGISTRATION_DATE_RANGE.end
+
+  const { data, error } = await supabase.rpc("get_registrations_stats", {
+    p_start_date: startDate,
+    p_end_date: endDate,
+  })
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Stats query failed", details: error.message },
+      { status: 500, headers }
+    )
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      stats: data,
+    },
+    { status: 200, headers }
+  )
+}
+```
+
+```bash Example Request
+curl -X GET 'https://njrajatmahotsav.com/api/admin/stats?start_date=2026-07-27&end_date=2026-08-02' \
+  -H 'Cookie: sb-access-token=...'
+```
+
+```json Example Response
+{
+  "success": true,
+  "stats": {
+    "total_registrations": 1250,
+    "by_ghaam": [
+      { "ghaam": "Ahmedabad", "count": 450 },
+      { "ghaam": "Mumbai", "count": 320 }
+    ],
+    "by_country": [
+      { "country": "usa", "count": 850 },
+      { "country": "india", "count": 400 }
+    ],
+    "by_date": [
+      { "date": "2026-07-27", "arrivals": 200, "departures": 50 }
+    ]
+  }
+}
+```
+
+</CodeGroup>
+
+<Note>
+The stats endpoint calls the `get_registrations_stats` RPC function in Supabase, which performs read-only aggregations. No table writes occur.
+</Note>
+
+## Get Paginated Registrations
+
+Retrieve paginated registration records with advanced filtering and search capabilities.
+
+### Endpoint
+
+```
+GET /api/admin/registrations
+```
+
+### Pagination Parameters
+
+<ParamField query="page_size" type="integer" default="25">
+  Number of records per page. Allowed values: 25, 50, 100
+</ParamField>
+
+<ParamField query="cursor" type="integer">
+  ID of the last record from the previous page (for keyset pagination)
+</ParamField>
+
+<ParamField query="direction" type="string" default="next">
+  Pagination direction: `next` or `prev`
+</ParamField>
+
+### Filter Parameters
+
+<ParamField query="ghaam" type="string">
+  Filter by exact ghaam name
+</ParamField>
+
+<ParamField query="mandal" type="string">
+  Filter by exact mandal name
+</ParamField>
+
+<ParamField query="country" type="string">
+  Filter by exact country
+</ParamField>
+
+<ParamField query="age" type="integer">
+  Filter by exact age
+</ParamField>
+
+<ParamField query="age_min" type="integer">
+  Minimum age (inclusive)
+</ParamField>
+
+<ParamField query="age_max" type="integer">
+  Maximum age (inclusive)
+</ParamField>
+
+<ParamField query="arrival_from" type="string">
+  Earliest arrival date (YYYY-MM-DD, inclusive)
+</ParamField>
+
+<ParamField query="arrival_to" type="string">
+  Latest arrival date (YYYY-MM-DD, inclusive)
+</ParamField>
+
+<ParamField query="departure_from" type="string">
+  Earliest departure date (YYYY-MM-DD, inclusive)
+</ParamField>
+
+<ParamField query="departure_to" type="string">
+  Latest departure date (YYYY-MM-DD, inclusive)
+</ParamField>
+
+<ParamField query="search" type="string">
+  Text search across first name, last name, email, and mobile number. Minimum 2 characters per word.
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates successful operation
+</ResponseField>
+
+<ResponseField name="rows" type="array">
+  Array of registration records
+</ResponseField>
+
+<ResponseField name="pageSize" type="integer">
+  Number of records in current page
+</ResponseField>
+
+<ResponseField name="nextCursor" type="integer | null">
+  Cursor for the next page (null if no more pages)
+</ResponseField>
+
+<ResponseField name="prevCursor" type="integer | null">
+  Cursor for the previous page (null if on first page)
+</ResponseField>
+
+<ResponseField name="hasMore" type="boolean">
+  Whether more records exist after current page
+</ResponseField>
+
+<ResponseField name="hasPrev" type="boolean">
+  Whether records exist before current page
+</ResponseField>
+
+### Implementation
+
+<CodeGroup>
+
+```typescript app/api/admin/registrations/route.ts
+const PAGE_SIZES = [25, 50, 100] as const
+
+export async function GET(request: Request) {
+  // ... authentication checks ...
+
+  const { searchParams } = new URL(request.url)
+  const pageSize = parsePageSize(searchParams.get("page_size"))
+  const cursor = cursorRaw ? parseInt(cursorRaw, 10) : null
+  const direction = searchParams.get("direction") === "prev" ? "prev" : "next"
+
+  // Parse filters
+  const ghaam = searchParams.get("ghaam")?.trim() || null
+  const mandal = searchParams.get("mandal")?.trim() || null
+  const country = searchParams.get("country")?.trim() || null
+  const age = parseOptionalInt(searchParams.get("age"))
+  const ageMin = parseOptionalInt(searchParams.get("age_min"))
+  const ageMax = parseOptionalInt(searchParams.get("age_max"))
+  const search = searchRaw && searchRaw.length >= 2 ? searchRaw : null
+
+  if (ageMin != null && ageMax != null && ageMin > ageMax) {
+    return NextResponse.json(
+      { error: "age_min must be <= age_max" },
+      { status: 400, headers }
+    )
+  }
+
+  const { data, error } = await supabase.rpc("get_registrations_filtered", {
+    p_page_size: pageSize,
+    p_cursor: cursor,
+    p_direction: direction,
+    p_ghaam: ghaam,
+    p_mandal: mandal,
+    p_country: country,
+    p_age: age,
+    p_age_min: ageMin,
+    p_age_max: ageMax,
+    p_arrival_from: arrivalFrom,
+    p_arrival_to: arrivalTo,
+    p_departure_from: departureFrom,
+    p_departure_to: departureTo,
+    p_search: search,
+  })
+
+  return NextResponse.json({
+    success: true,
+    rows: result.rows ?? [],
+    pageSize: result.pageSize ?? pageSize,
+    nextCursor: result.nextCursor ?? null,
+    prevCursor: result.prevCursor ?? null,
+    hasMore: result.hasMore ?? false,
+    hasPrev: result.hasPrev ?? false,
+  })
+}
+```
+
+```bash Example Request
+curl -X GET 'https://njrajatmahotsav.com/api/admin/registrations?page_size=50&ghaam=Ahmedabad&age_min=18&age_max=65&search=john' \
+  -H 'Cookie: sb-access-token=...'
+```
+
+```json Example Response
+{
+  "success": true,
+  "rows": [
+    {
+      "id": 1234,
+      "first_name": "John",
+      "middle_name": "Kumar",
+      "last_name": "Patel",
+      "email": "john.patel@example.com",
+      "mobile_number": "5551234567",
+      "phone_country_code": "+1",
+      "country": "usa",
+      "ghaam": "Ahmedabad",
+      "mandal": "new-jersey",
+      "arrival_date": "2026-07-27",
+      "departure_date": "2026-08-02",
+      "age": 32
+    }
+  ],
+  "pageSize": 50,
+  "nextCursor": 1284,
+  "prevCursor": null,
+  "hasMore": true,
+  "hasPrev": false
+}
+```
+
+</CodeGroup>
+
+<Note>
+Keyset pagination is more efficient than offset-based pagination for large datasets. Always use the returned cursors for navigation.
+</Note>
+
+## Get Distinct Values
+
+Retrieve distinct values for filter dropdowns (ghaam, mandal, country).
+
+### Endpoint
+
+```
+GET /api/admin/registrations/distinct
+```
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates successful operation
+</ResponseField>
+
+<ResponseField name="ghaams" type="array">
+  Array of unique ghaam values
+</ResponseField>
+
+<ResponseField name="mandals" type="array">
+  Array of unique mandal values
+</ResponseField>
+
+<ResponseField name="countries" type="array">
+  Array of unique country values
+</ResponseField>
+
+### Implementation
+
+<CodeGroup>
+
+```typescript app/api/admin/registrations/distinct/route.ts
+export async function GET() {
+  // ... authentication checks ...
+
+  const { data, error } = await supabase.rpc("get_registrations_distinct_values")
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Query failed", details: error.message },
+      { status: 500, headers }
+    )
+  }
+
+  return NextResponse.json(
+    { success: true, ...(data as object) },
+    { status: 200, headers }
+  )
+}
+```
+
+```bash Example Request
+curl -X GET 'https://njrajatmahotsav.com/api/admin/registrations/distinct' \
+  -H 'Cookie: sb-access-token=...'
+```
+
+```json Example Response
+{
+  "success": true,
+  "ghaams": [
+    "Ahmedabad",
+    "Mumbai",
+    "Surat",
+    "Vadodara"
+  ],
+  "mandals": [
+    "new-jersey",
+    "chicago",
+    "california",
+    "london"
+  ],
+  "countries": [
+    "usa",
+    "india",
+    "england",
+    "canada",
+    "australia",
+    "kenya"
+  ]
+}
+```
+
+</CodeGroup>
+
+## Test Read Endpoint
+
+Test Supabase connectivity and RLS policies by reading a single registration record.
+
+### Endpoint
+
+```
+GET /api/admin/test-read
+```
+
+### Description
+
+Read-only test endpoint that returns the most recent registration record. Useful for verifying:
+- Supabase connection
+- Authentication flow
+- Row Level Security (RLS) policies
+
+<Warning>
+This endpoint does not write to any tables.
+</Warning>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates successful operation
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Description of the test result
+</ResponseField>
+
+<ResponseField name="row" type="object | null">
+  Single registration record (most recent)
+</ResponseField>
+
+<ResponseField name="rowCount" type="integer">
+  Number of rows returned (0 or 1)
+</ResponseField>
+
+### Implementation
+
+<CodeGroup>
+
+```typescript app/api/admin/test-read/route.ts
+export async function GET() {
+  // ... authentication checks ...
+
+  const { data, error } = await supabase
+    .from("registrations")
+    .select("id, first_name, last_name, email, ghaam, mandal, arrival_date, departure_date")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Query failed", details: error.message },
+      { status: 500, headers }
+    )
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      message: "Read-only test: 1 row from registrations",
+      row: data,
+      rowCount: data ? 1 : 0,
+    },
+    { status: 200, headers }
+  )
+}
+```
+
+```bash Example Request
+curl -X GET 'https://njrajatmahotsav.com/api/admin/test-read' \
+  -H 'Cookie: sb-access-token=...'
+```
+
+```json Example Response
+{
+  "success": true,
+  "message": "Read-only test: 1 row from registrations",
+  "row": {
+    "id": 5678,
+    "first_name": "Priya",
+    "last_name": "Shah",
+    "email": "priya.shah@example.com",
+    "ghaam": "Mumbai",
+    "mandal": "new-jersey",
+    "arrival_date": "2026-07-28",
+    "departure_date": "2026-08-01"
+  },
+  "rowCount": 1
+}
+```
+
+</CodeGroup>
+
+## Error Responses
+
+All admin endpoints return consistent error responses:
+
+<CodeGroup>
+
+```json 401 Unauthorized
+{
+  "error": "Unauthorized",
+  "message": "Sign in required"
+}
+```
+
+```json 403 Forbidden
+{
+  "error": "Forbidden",
+  "message": "Admin domain (@nj.sgadi.us) required"
+}
+```
+
+```json 400 Bad Request
+{
+  "error": "age_min must be <= age_max"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Supabase not configured",
+  "details": "Missing SUPABASE_URL environment variable"
+}
+```
+
+</CodeGroup>
+
+## Cache Control
+
+All admin endpoints set strict no-cache headers to ensure fresh data:
+
+```typescript
+const headers = new Headers()
+headers.set("Cache-Control", "no-store, max-age=0")
+```
+
+## Best Practices
+
+### Pagination
+1. Always use keyset pagination with cursors for large datasets
+2. Store cursors from responses for navigation
+3. Use appropriate page sizes based on UI needs
+
+### Filtering
+1. Combine multiple filters for precise queries
+2. Use text search with minimum 2 characters
+3. Validate age ranges before submission
+
+### Performance
+1. Cache distinct values for filter dropdowns
+2. Use date range filters to limit result sets
+3. Monitor query performance with larger datasets
+
+### Security
+1. Never expose Supabase keys in client code
+2. Always verify admin domain on server side
+3. Log failed authentication attempts for monitoring

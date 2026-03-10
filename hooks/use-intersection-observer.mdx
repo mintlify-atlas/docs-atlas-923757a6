@@ -1,0 +1,325 @@
+---
+title: useIntersectionObserver
+description: A React hook for detecting when an element enters or exits the viewport using the Intersection Observer API
+---
+
+## Overview
+
+The `useIntersectionObserver` hook provides a simple interface to detect when an element becomes visible in the viewport. It's perfect for implementing scroll-based animations, lazy loading, and performance optimizations.
+
+<Note>
+This hook automatically handles browser compatibility by checking for Intersection Observer API support. Components will gracefully degrade in unsupported browsers.
+</Note>
+
+## Import
+
+```typescript
+import { useIntersectionObserver } from '@/hooks/use-intersection-observer'
+```
+
+## Usage
+
+### Basic Visibility Detection
+
+```typescript
+import { useIntersectionObserver } from '@/hooks/use-intersection-observer'
+
+export default function FadeInComponent() {
+  const { elementRef, isVisible } = useIntersectionObserver()
+
+  return (
+    <div 
+      ref={elementRef}
+      className={isVisible ? 'opacity-100' : 'opacity-0'}
+    >
+      Content fades in when visible
+    </div>
+  )
+}
+```
+
+### Scroll-Triggered Animation
+
+```typescript
+import { useIntersectionObserver } from '@/hooks/use-intersection-observer'
+import { motion } from 'framer-motion'
+
+export default function AnimatedCard() {
+  const { elementRef, isVisible } = useIntersectionObserver({
+    threshold: 0.5,
+    freezeOnceVisible: true
+  })
+
+  return (
+    <motion.div
+      ref={elementRef}
+      initial={{ opacity: 0, y: 50 }}
+      animate={isVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+      transition={{ duration: 0.6 }}
+    >
+      Card content animates once when 50% visible
+    </motion.div>
+  )
+}
+```
+
+### Lazy Loading Images
+
+```typescript
+import { useIntersectionObserver } from '@/hooks/use-intersection-observer'
+import Image from 'next/image'
+
+export default function LazyImage({ src, alt }: { src: string; alt: string }) {
+  const { elementRef, isVisible } = useIntersectionObserver({
+    rootMargin: '200px', // Start loading 200px before visible
+    freezeOnceVisible: true
+  })
+
+  return (
+    <div ref={elementRef}>
+      {isVisible && (
+        <Image src={src} alt={alt} width={800} height={600} />
+      )}
+    </div>
+  )
+}
+```
+
+### Tracking Multiple Elements
+
+```typescript
+import { useIntersectionObserver } from '@/hooks/use-intersection-observer'
+
+export default function ScrollRevealList() {
+  const item1 = useIntersectionObserver({ threshold: 0.8 })
+  const item2 = useIntersectionObserver({ threshold: 0.8 })
+  const item3 = useIntersectionObserver({ threshold: 0.8 })
+
+  return (
+    <div>
+      <div ref={item1.elementRef} className={item1.isVisible ? 'visible' : 'hidden'}>
+        Item 1
+      </div>
+      <div ref={item2.elementRef} className={item2.isVisible ? 'visible' : 'hidden'}>
+        Item 2
+      </div>
+      <div ref={item3.elementRef} className={item3.isVisible ? 'visible' : 'hidden'}>
+        Item 3
+      </div>
+    </div>
+  )
+}
+```
+
+## Parameters
+
+The hook accepts an optional options object:
+
+<ParamField path="threshold" type="number" default="0">
+  A number between 0 and 1 indicating what percentage of the element must be visible to trigger the observer.
+  
+  - `0`: Triggers as soon as any part enters viewport
+  - `0.5`: Triggers when 50% is visible
+  - `1`: Triggers only when fully visible
+</ParamField>
+
+<ParamField path="rootMargin" type="string" default="'0px'">
+  Margin around the viewport for triggering the observer early or late. Uses CSS margin syntax.
+  
+  **Examples:**
+  - `'0px'`: Trigger at viewport edge
+  - `'100px'`: Trigger 100px before entering viewport
+  - `'-50px'`: Trigger 50px after entering viewport
+  - `'100px 0px'`: 100px top/bottom, 0px left/right
+</ParamField>
+
+<ParamField path="freezeOnceVisible" type="boolean" default="false">
+  If `true`, stops observing after the element becomes visible once. Useful for one-time animations.
+  
+  This prevents the element from toggling visibility when scrolling back up.
+</ParamField>
+
+## Return Value
+
+The hook returns an object with the following properties:
+
+<ResponseField name="elementRef" type="RefObject<HTMLDivElement>">
+  A React ref to attach to the element you want to observe. Must be assigned to the element's `ref` prop.
+  
+  ```typescript
+  <div ref={elementRef}>Content</div>
+  ```
+</ResponseField>
+
+<ResponseField name="isVisible" type="boolean">
+  Boolean indicating whether the element is currently visible in the viewport based on the configured options.
+  
+  Updates whenever the element enters or exits the viewport (unless `freezeOnceVisible` is true).
+</ResponseField>
+
+<ResponseField name="entry" type="IntersectionObserverEntry | undefined">
+  The raw Intersection Observer entry object containing detailed information about the intersection.
+  
+  **Useful properties:**
+  - `entry.isIntersecting`: Same as `isVisible`
+  - `entry.intersectionRatio`: How much of the element is visible (0-1)
+  - `entry.boundingClientRect`: Element's position and size
+  - `entry.intersectionRect`: The visible portion of the element
+</ResponseField>
+
+## Type Definitions
+
+```typescript
+interface UseIntersectionObserverOptions {
+  threshold?: number
+  rootMargin?: string
+  freezeOnceVisible?: boolean
+}
+
+function useIntersectionObserver(
+  options?: UseIntersectionObserverOptions
+): {
+  elementRef: RefObject<HTMLDivElement>
+  isVisible: boolean
+  entry: IntersectionObserverEntry | undefined
+}
+```
+
+## Implementation Details
+
+### Browser Support Check
+
+The hook checks for Intersection Observer support:
+
+```typescript
+const hasIOSupport = !!window.IntersectionObserver
+if (!hasIOSupport || frozen || !element) return
+```
+
+### Freeze Mechanism
+
+When `freezeOnceVisible` is true, observation stops after first intersection:
+
+```typescript
+const frozen = entry?.isIntersecting && freezeOnceVisible
+```
+
+The observer disconnects and won't trigger again, saving resources.
+
+### Cleanup
+
+The hook automatically disconnects the observer when the component unmounts:
+
+```typescript
+return () => observer.disconnect()
+```
+
+## Use Cases
+
+- **Scroll animations**: Trigger animations when elements enter viewport
+- **Lazy loading**: Load images, videos, or components only when needed
+- **Analytics**: Track when users view specific content
+- **Infinite scroll**: Load more content when reaching bottom
+- **Performance**: Defer expensive renders until elements are visible
+- **Reveal effects**: Progressive disclosure of content as user scrolls
+
+## Performance Considerations
+
+### Advantages Over Scroll Listeners
+
+<Note type="success">
+Intersection Observer is more performant than scroll event listeners because:
+
+- Runs asynchronously without blocking main thread
+- Browser-optimized for intersection calculations
+- No need for manual throttling or debouncing
+- Automatically handles reflows and resizes
+</Note>
+
+### Best Practices
+
+1. **Use `freezeOnceVisible`** for one-time animations to stop observing after trigger
+2. **Adjust `threshold`** based on element size (smaller elements need lower thresholds)
+3. **Use `rootMargin`** to preload content before it becomes visible
+4. **Batch animations** by observing multiple elements with the same options
+
+## Common Patterns
+
+### One-Time Reveal Animation
+
+```typescript
+const { elementRef, isVisible } = useIntersectionObserver({
+  threshold: 0.3,
+  freezeOnceVisible: true // Stop after revealing once
+})
+```
+
+### Early Loading Trigger
+
+```typescript
+const { elementRef, isVisible } = useIntersectionObserver({
+  rootMargin: '300px', // Start loading 300px before visible
+  freezeOnceVisible: true
+})
+```
+
+### Precise Visibility Requirement
+
+```typescript
+const { elementRef, isVisible } = useIntersectionObserver({
+  threshold: 0.9, // Must be 90% visible
+  rootMargin: '-20px' // With 20px buffer inside viewport
+})
+```
+
+## Browser Compatibility
+
+Intersection Observer is supported in all modern browsers:
+
+- Chrome 51+
+- Firefox 55+
+- Safari 12.1+
+- Edge 15+
+
+For older browsers, the hook gracefully degrades by not observing. Consider using a [polyfill](https://github.com/w3c/IntersectionObserver/tree/main/polyfill) if support is required.
+
+## Troubleshooting
+
+### Element Not Detected
+
+Ensure the ref is attached correctly:
+
+```typescript
+// ✅ Correct
+<div ref={elementRef}>Content</div>
+
+// ❌ Incorrect
+<div ref="elementRef">Content</div>
+```
+
+### Animation Triggers Too Early
+
+Increase threshold or use negative rootMargin:
+
+```typescript
+const { elementRef, isVisible } = useIntersectionObserver({
+  threshold: 0.5, // 50% visible
+  rootMargin: '-50px' // 50px inside viewport
+})
+```
+
+### Content Loads Too Late
+
+Use positive rootMargin to trigger earlier:
+
+```typescript
+const { elementRef, isVisible } = useIntersectionObserver({
+  rootMargin: '200px' // Load 200px before entering
+})
+```
+
+## Related
+
+- [useDeviceType](/hooks/use-device-type) - Device detection for responsive behavior
+- [Framer Motion](https://www.framer.com/motion/) - Animation library that pairs well with this hook
+- [Intersection Observer API](https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API) - MDN documentation

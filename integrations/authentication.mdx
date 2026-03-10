@@ -1,0 +1,484 @@
+---
+title: Authentication
+description: Google OAuth integration with domain-restricted admin access for the NJ Rajat Mahotsav platform
+---
+
+## Overview
+
+The platform uses **Google OAuth** via Supabase Auth for admin dashboard access. Authentication is **domain-restricted** to `@nj.sgadi.us` email addresses for security.
+
+### Features
+
+- **Google OAuth Sign-In** - One-click authentication via Google accounts
+- **Domain Restriction** - Only `@nj.sgadi.us` emails can access admin features
+- **Session Management** - Cookie-based sessions with automatic refresh
+- **Redirect Preservation** - Returns users to intended page after auth
+- **Row Level Security** - Database-level access control tied to user email
+
+## Setup
+
+### Prerequisites
+
+<Steps>
+
+<Step title="Supabase Project">
+  Create a project at [supabase.com](https://supabase.com) and note your project URL.
+</Step>
+
+<Step title="Google Cloud Project">
+  Create a project at [Google Cloud Console](https://console.cloud.google.com).
+</Step>
+
+<Step title="Environment Variables">
+  Add to `.env.local`:
+  ```bash
+  NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+  ```
+</Step>
+
+</Steps>
+
+### Google OAuth Configuration
+
+<Steps>
+
+<Step title="Create OAuth Credentials">
+  1. Go to Google Cloud Console → **APIs & Services** → **Credentials**
+  2. Click **Create Credentials** → **OAuth client ID**
+  3. Choose **Web application**
+</Step>
+
+<Step title="Configure Authorized Origins">
+  Add these JavaScript origins:
+  ```
+  http://localhost:3000
+  https://njrajatmahotsav.com
+  ```
+</Step>
+
+<Step title="Configure Redirect URIs">
+  Add these redirect URIs:
+  ```
+  https://your-project.supabase.co/auth/v1/callback
+  http://localhost:3000/auth/callback
+  https://njrajatmahotsav.com/auth/callback
+  ```
+</Step>
+
+<Step title="Copy Client ID and Secret">
+  Save the **Client ID** and **Client Secret** for the next step.
+</Step>
+
+</Steps>
+
+### Supabase Configuration
+
+<Steps>
+
+<Step title="Enable Google Provider">
+  1. Go to Supabase Dashboard → **Authentication** → **Providers**
+  2. Find **Google** and toggle it on
+  3. Paste your **Client ID** and **Client Secret**
+  4. Save changes
+</Step>
+
+<Step title="Configure Redirect URLs">
+  1. Go to **Authentication** → **URL Configuration**
+  2. Add these to **Redirect URLs**:
+     ```
+     http://localhost:3000/auth/callback
+     https://njrajatmahotsav.com/auth/callback
+     ```
+  3. Set **Site URL** to `https://njrajatmahotsav.com`
+</Step>
+
+</Steps>
+
+## Authentication Flow
+
+### Sign-In Component
+
+The admin sign-in button triggers the Google OAuth flow:
+
+<CodeGroup>
+```tsx app/admin/registrations/AdminSignIn.tsx
+"use client"
+
+import { useState } from "react"
+import { supabase } from "@/utils/supabase/client"
+import { Button } from "@/components/atoms/button"
+import { Loader2 } from "lucide-react"
+
+export function AdminSignIn() {
+  const [loading, setLoading] = useState(false)
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true)
+    try {
+      const nextPath = "/admin/registrations"
+      const cookieParts = [
+        `rm-auth-next=${encodeURIComponent(nextPath)}`,
+        "Path=/",
+        "Max-Age=600",
+        "SameSite=Lax",
+      ]
+      // Ensure the cookie survives redirects between www and apex domain
+      const host = window.location.hostname
+      if (host.endsWith("njrajatmahotsav.com")) {
+        cookieParts.push("Domain=.njrajatmahotsav.com")
+      }
+      if (window.location.protocol === "https:") cookieParts.push("Secure")
+      document.cookie = cookieParts.join("; ")
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+      if (error) throw error
+    } catch (err) {
+      console.error("Sign-in error:", err)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-6">
+      <Button
+        onClick={handleGoogleSignIn}
+        disabled={loading}
+        className="inline-flex items-center gap-2 rounded-full px-8 py-4"
+      >
+        {loading ? (
+          <Loader2 className="size-5 animate-spin" />
+        ) : (
+          <svg className="size-5" viewBox="0 0 24 24">
+            {/* Google icon SVG paths */}
+          </svg>
+        )}
+        {loading ? "Signing in…" : "Sign in with Google"}
+      </Button>
+      <p className="text-sm text-gray-600 max-w-xs text-center">
+        Access restricted to @nj.sgadi.us accounts
+      </p>
+    </div>
+  )
+}
+```
+
+```tsx Usage Example
+import { AdminSignIn } from './AdminSignIn'
+
+export default function AdminPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+        <p className="mb-6">Sign in with your authorized Google account</p>
+        <AdminSignIn />
+      </div>
+    </div>
+  )
+}
+```
+</CodeGroup>
+
+<Note>
+The component stores the intended redirect path (`/admin/registrations`) in a cookie to preserve it through the OAuth flow, which may drop query parameters.
+</Note>
+
+### Callback Handler
+
+The callback route exchanges the OAuth code for a session:
+
+<CodeGroup>
+```typescript app/auth/callback/route.ts
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { createClient } from "@/utils/supabase/server"
+
+/**
+ * OAuth callback route. Exchanges auth code for session and redirects.
+ */
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get("code")
+  const queryNext = searchParams.get("next")
+  let next = queryNext ?? "/"
+  
+  // Check cookie for redirect path
+  if (!queryNext) {
+    const cookieStore = await cookies()
+    const cookieNext = cookieStore.get("rm-auth-next")?.value
+    if (cookieNext) next = decodeURIComponent(cookieNext)
+  }
+  
+  // Validate redirect path (prevent open redirects)
+  if (!next.startsWith("/") || next.includes("//") || next.includes(":")) {
+    next = "/"
+  }
+
+  if (!code) {
+    return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+  if (error) {
+    console.error("[auth/callback] exchangeCodeForSession error:", error.message)
+    return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host")
+  const requestHost = request.headers.get("host")
+  const effectiveHost = forwardedHost ?? requestHost ?? new URL(request.url).host
+  const isLocalEnv = process.env.NODE_ENV === "development"
+
+  const redirectUrl = isLocalEnv
+    ? `${origin}${next}`
+    : forwardedHost
+      ? `https://${forwardedHost}${next}`
+      : `${origin}${next}`
+
+  const response = NextResponse.redirect(redirectUrl)
+  
+  // Clear the redirect cookie
+  const clearCookieOptions: Parameters<typeof response.cookies.set>[2] = {
+    path: "/",
+    maxAge: 0,
+  }
+  if (effectiveHost.endsWith("njrajatmahotsav.com")) {
+    clearCookieOptions.domain = ".njrajatmahotsav.com"
+  }
+  response.cookies.set("rm-auth-next", "", clearCookieOptions)
+  
+  return response
+}
+```
+</CodeGroup>
+
+<Warning>
+The callback route validates redirect paths to prevent **open redirect attacks**. Only relative paths starting with `/` are allowed.
+</Warning>
+
+## Domain Restriction
+
+### Admin Auth Helper
+
+Domain checking is centralized in `lib/admin-auth.ts`:
+
+<CodeGroup>
+```typescript lib/admin-auth.ts
+const ALLOWED_DOMAIN = "@nj.sgadi.us"
+
+/**
+ * Checks if the given email is allowed for admin access.
+ * @param email - User email (e.g. from session.user.email)
+ * @returns true if email ends with @nj.sgadi.us (case-insensitive)
+ */
+export function isAllowedAdminDomain(email: string | null | undefined): boolean {
+  if (!email || typeof email !== "string") return false
+  return email.toLowerCase().endsWith(ALLOWED_DOMAIN.toLowerCase())
+}
+
+/**
+ * Checks if the given user has an allowed admin domain email.
+ * @param user - User object with optional email (e.g. from session.user)
+ * @returns true if user exists and email ends with @nj.sgadi.us
+ */
+export function isAdminDomainUser(user: { email?: string | null } | null | undefined): boolean {
+  return isAllowedAdminDomain(user?.email)
+}
+```
+
+```typescript Usage in API Route
+import { createClient } from "@/utils/supabase/server"
+import { isAdminDomainUser } from "@/lib/admin-auth"
+import { NextResponse } from "next/server"
+
+export async function GET(request: Request) {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized", message: "Sign in required" },
+      { status: 401 }
+    )
+  }
+
+  if (!isAdminDomainUser(user)) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "Admin domain (@nj.sgadi.us) required" },
+      { status: 403 }
+    )
+  }
+
+  // Proceed with admin-only logic
+  const { data } = await supabase.from('registrations').select('*')
+  return NextResponse.json({ success: true, data })
+}
+```
+</CodeGroup>
+
+### Server Component Protection
+
+```typescript
+import { redirect } from 'next/navigation'
+import { createClient } from '@/utils/supabase/server'
+import { isAdminDomainUser } from '@/lib/admin-auth'
+
+export default async function AdminPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/admin/login')
+  }
+
+  if (!isAdminDomainUser(user)) {
+    redirect('/admin/unauthorized')
+  }
+
+  return (
+    <div>
+      <h1>Welcome, {user.email}</h1>
+      {/* Admin dashboard content */}
+    </div>
+  )
+}
+```
+
+## Session Management
+
+### Middleware Auto-Refresh
+
+The middleware automatically refreshes sessions on every request:
+
+```typescript middleware.ts
+import { updateSession } from "@/utils/supabase/middleware"
+
+export async function middleware(request: NextRequest) {
+  return await updateSession(request)
+}
+```
+
+See the [Supabase Integration](/integrations/supabase#middleware-session-refresh) page for the full implementation in `utils/supabase/middleware.ts:10`.
+
+### Manual Sign Out
+
+```typescript
+import { supabase } from '@/utils/supabase/client'
+
+async function handleSignOut() {
+  const { error } = await supabase.auth.signOut()
+  if (error) {
+    console.error('Sign out error:', error)
+  } else {
+    window.location.href = '/'
+  }
+}
+```
+
+## Security Best Practices
+
+<Steps>
+
+<Step title="Always Verify Domain Server-Side">
+  Never trust client-side checks alone. Always verify `isAdminDomainUser()` in API routes and Server Components.
+</Step>
+
+<Step title="Use Row Level Security">
+  Enforce database-level access control with RLS policies that check `auth.email()`.
+  
+  ```sql
+  CREATE POLICY "admin_domain_select"
+    ON public.registrations
+    FOR SELECT
+    TO authenticated
+    USING ((select auth.email())::text ilike '%@nj.sgadi.us');
+  ```
+</Step>
+
+<Step title="Validate Redirect URLs">
+  Prevent open redirect attacks by validating all redirect paths:
+  ```typescript
+  if (!path.startsWith('/') || path.includes('//') || path.includes(':')) {
+    path = '/'
+  }
+  ```
+</Step>
+
+<Step title="Set Secure Cookies">
+  Use `Secure`, `HttpOnly`, and `SameSite=Lax` flags:
+  ```typescript
+  document.cookie = [
+    `name=value`,
+    `Path=/`,
+    `SameSite=Lax`,
+    `Secure`, // HTTPS only
+  ].join('; ')
+  ```
+</Step>
+
+</Steps>
+
+## Troubleshooting
+
+### Common Issues
+
+<Warning>
+**"redirect_uri_mismatch" error:**
+- Verify the callback URL in Google Console **exactly** matches your Supabase redirect URL
+- Check both local (`http://localhost:3000/auth/callback`) and production URLs
+- Ensure no trailing slashes or query parameters
+</Warning>
+
+**Session not persisting:**
+- Check that middleware is running (see `middleware.ts:4`)
+- Verify cookies are not blocked (check DevTools → Application → Cookies)
+- Look for `sb-*-auth-token` cookies
+
+**"Invalid OAuth client" error:**
+- Confirm Client ID and Secret in Supabase match Google Console values
+- Check that the Google OAuth consent screen is configured
+
+**User redirected to `/` instead of intended page:**
+- Check that the `rm-auth-next` cookie is being set before auth
+- Verify cookie domain settings for production (`.njrajatmahotsav.com`)
+- Ensure cookie is not expired (10-minute TTL)
+
+### Debug Checklist
+
+```typescript
+// Check if user is authenticated
+const { data: { user } } = await supabase.auth.getUser()
+console.log('Current user:', user?.email)
+
+// Check domain restriction
+import { isAdminDomainUser } from '@/lib/admin-auth'
+console.log('Is admin?', isAdminDomainUser(user))
+
+// Check session in cookies
+// DevTools → Application → Cookies → look for:
+// - sb-{project-ref}-auth-token
+// - sb-{project-ref}-auth-token-code-verifier
+```
+
+## Resources
+
+<Card title="Supabase OAuth Setup Guide" icon="lock" href="/integrations/supabase">
+  Complete Supabase configuration for Google OAuth
+</Card>
+
+<Card title="Google OAuth Documentation" icon="google" href="https://developers.google.com/identity/protocols/oauth2">
+  Official Google OAuth 2.0 reference
+</Card>
+
+<Card title="Supabase Auth Documentation" icon="shield" href="https://supabase.com/docs/guides/auth">
+  Supabase authentication guides and API reference
+</Card>

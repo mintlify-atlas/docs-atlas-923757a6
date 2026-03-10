@@ -1,0 +1,221 @@
+---
+title: useDeviceType
+description: A React hook for detecting the current device type (mobile, tablet, or desktop) based on viewport width
+---
+
+## Overview
+
+The `useDeviceType` hook detects the user's device type by monitoring the viewport width. It returns `'mobile'`, `'tablet'`, or `'desktop'` and automatically updates when the window is resized.
+
+<Note>
+This hook uses client-side detection based on viewport width breakpoints. It defaults to `'desktop'` during server-side rendering to prevent hydration mismatches.
+</Note>
+
+## Import
+
+```typescript
+import { useDeviceType } from '@/hooks/use-device-type'
+```
+
+## Usage
+
+### Basic Usage
+
+```typescript
+import { useDeviceType } from '@/hooks/use-device-type'
+
+export default function ResponsiveComponent() {
+  const deviceType = useDeviceType()
+
+  return (
+    <div>
+      <p>Current device: {deviceType}</p>
+      {deviceType === 'mobile' && <MobileView />}
+      {deviceType === 'tablet' && <TabletView />}
+      {deviceType === 'desktop' && <DesktopView />}
+    </div>
+  )
+}
+```
+
+### Conditional Video Sources
+
+From `components/organisms/video-background-section.tsx:7`:
+
+```typescript
+import { useDeviceType } from '@/hooks/use-device-type'
+
+export default function VideoBackgroundSection() {
+  const deviceType = useDeviceType()
+  const isMobile = deviceType === "mobile"
+  
+  return (
+    <iframe
+      src={isMobile
+        ? "https://player.vimeo.com/video/1128421563?autoplay=1&muted=1&loop=1"
+        : "https://player.vimeo.com/video/1128421609?autoplay=1&muted=1&loop=1"
+      }
+      // ... other props
+    />
+  )
+}
+```
+
+### Conditional Rendering
+
+From `components/organisms/shader-background.tsx:17`:
+
+```typescript
+import { useDeviceType } from '@/hooks/use-device-type'
+
+export default function ShaderBackground({ children }: { children: ReactNode }) {
+  const deviceType = useDeviceType()
+
+  return (
+    <div className="relative">
+      {deviceType === 'desktop' && <WebGLShaderEffect />}
+      {children}
+    </div>
+  )
+}
+```
+
+### Responsive Layout Switching
+
+From `app/page.tsx:36`:
+
+```typescript
+import { useDeviceType } from '@/hooks/use-device-type'
+import LandingPage from '@/components/organisms/landing-page'
+import LandingPageMobile from '@/components/organisms/landing-page-mobile'
+
+export default function Home() {
+  const deviceType = useDeviceType()
+
+  return deviceType === 'mobile' 
+    ? <LandingPageMobile /> 
+    : <LandingPage />
+}
+```
+
+## Return Value
+
+<ResponseField name="deviceType" type="'mobile' | 'tablet' | 'desktop'">
+  The current device type based on viewport width:
+  
+  - `'mobile'`: Width ≤ 768px
+  - `'tablet'`: Width > 768px and ≤ 1024px
+  - `'desktop'`: Width > 1024px
+  
+  Defaults to `'desktop'` on initial render (before client-side measurement).
+</ResponseField>
+
+## Type Definition
+
+```typescript
+export type DeviceType = 'mobile' | 'tablet' | 'desktop'
+
+export function useDeviceType(): DeviceType
+```
+
+## Breakpoints
+
+The hook uses the following viewport width breakpoints:
+
+| Device Type | Viewport Width |
+|------------|----------------|
+| Mobile | ≤ 768px |
+| Tablet | 769px - 1024px |
+| Desktop | > 1024px |
+
+```typescript
+if (width <= 768) {
+  setDeviceType('mobile')
+} else if (width <= 1024) {
+  setDeviceType('tablet')
+} else {
+  setDeviceType('desktop')
+}
+```
+
+## Implementation Details
+
+### Resize Handling
+
+The hook attaches a resize event listener to detect viewport changes:
+
+```typescript
+useEffect(() => {
+  const checkDevice = () => {
+    const width = window.innerWidth
+    // ... device type logic
+  }
+
+  checkDevice() // Initial check
+  window.addEventListener('resize', checkDevice)
+  return () => window.removeEventListener('resize', checkDevice)
+}, [])
+```
+
+### SSR Compatibility
+
+The hook initializes state as `null` and returns `'desktop'` as the fallback:
+
+```typescript
+const [deviceType, setDeviceType] = useState<DeviceType | null>(null)
+return deviceType ?? 'desktop'
+```
+
+This prevents hydration errors by ensuring the server render matches the initial client render.
+
+## Use Cases
+
+- **Responsive media**: Load different video or image sources based on device
+- **Conditional features**: Enable/disable features like WebGL effects on mobile
+- **Layout switching**: Render completely different layouts for mobile vs desktop
+- **Performance optimization**: Skip heavy animations or effects on mobile devices
+- **Navigation variants**: Show different navigation components per device type
+
+## Performance Considerations
+
+<Note type="warning">
+The hook re-renders the component on every window resize. For performance-critical scenarios, consider debouncing the resize handler or using CSS media queries instead.
+</Note>
+
+### Alternative: CSS Media Queries
+
+For purely visual changes, CSS is more performant:
+
+```css
+/* Show on mobile only */
+.mobile-only {
+  display: block;
+}
+
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none;
+  }
+}
+```
+
+Use this hook when you need:
+- Different components rendered per device
+- Device-specific logic or data fetching
+- Programmatic access to device type
+
+## Real-World Usage
+
+In the NJ Rajat Mahotsav application, this hook is used in:
+
+- **Video backgrounds** (`video-background-section.tsx:7`) - Different video sources
+- **Shader effects** (`shader-background.tsx:17`) - Disable on mobile for performance
+- **Page layouts** (`page.tsx:36`) - Mobile vs desktop landing pages
+- **Image marquees** (`image-marquee.tsx:29`) - Adjust animation speed
+- **Navigation** (`desktop-navigation.tsx:50`) - Show/hide based on device
+- **Forms** (`registration/page.tsx:63`) - Adjust form layouts
+
+## Related
+
+- [useIntersectionObserver](/hooks/use-intersection-observer) - Another responsive hook for scroll-based detection
+- [Video Background Section](/components/organisms/video-background-section) - Example usage

@@ -1,0 +1,288 @@
+---
+title: CDN Assets
+description: Cloudflare CDN helper functions for optimized image delivery and static asset management
+---
+
+## Overview
+
+The `cdn-assets` module provides helper functions for accessing optimized images through Cloudflare Images CDN and static assets via Cloudflare R2. All images are automatically delivered in modern formats (WebP/AVIF) with quality optimization.
+
+## CDN Configuration
+
+<ParamField path="CDN_BASE_URL" type="string" default="https://cdn.njrajatmahotsav.com">
+  Base URL for Cloudflare R2 static assets (logos, icons, audio files)
+</ParamField>
+
+<ParamField path="CLOUDFLARE_IMAGES_BASE" type="string" default="https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/">
+  Base URL for Cloudflare Images service with automatic format conversion
+</ParamField>
+
+## Static Assets Object
+
+The `CDN_ASSETS` object provides direct URLs to commonly used static assets:
+
+```typescript
+import { CDN_ASSETS } from "@/lib/cdn-assets"
+
+// Available assets
+CDN_ASSETS.mainLogo              // Main event logo with text
+CDN_ASSETS.mainLogoNoText        // Logo symbol only
+CDN_ASSETS.maningarLogo          // Maninagar Shree Swaminarayan Gadi Sansthan logo
+CDN_ASSETS.whiteLogo             // White variant for dark backgrounds
+CDN_ASSETS.linenLogo             // Linen texture logo variant
+CDN_ASSETS.instagramIcon         // Instagram gradient icon
+CDN_ASSETS.youtubeIcon           // YouTube red icon
+CDN_ASSETS.tilak                 // Tilak decorative element
+```
+
+### Usage Example
+
+```tsx
+import Image from "next/image"
+import { CDN_ASSETS } from "@/lib/cdn-assets"
+
+export function Header() {
+  return (
+    <Image
+      src={CDN_ASSETS.mainLogo}
+      alt="NJ Rajat Mahotsav"
+      width={200}
+      height={80}
+    />
+  )
+}
+```
+
+## Image Helper Functions
+
+### getCloudflareImage
+
+<ParamField path="getCloudflareImage" type="function">
+  Returns optimized image URL with `bigger` variant (format=auto, quality=90)
+</ParamField>
+
+**Signature:**
+```typescript
+function getCloudflareImage(imageId: string): string
+```
+
+**Parameters:**
+- `imageId` - Cloudflare Images UUID (e.g., `"fc5c68aa-dc1f-44b4-9736-326e30be9900"`)
+
+**Returns:** Fully qualified URL with `bigger` variant and automatic format selection
+
+**Example:**
+```tsx
+import { getCloudflareImage } from "@/lib/cdn-assets"
+
+// In a component
+const imageUrl = getCloudflareImage("bdf8b51a-570b-447d-7caa-9e30b94b4300")
+// Returns: https://imagedelivery.net/vdFY6FzpM3Q9zi31qlYmGA/bdf8b51a-570b-447d-7caa-9e30b94b4300/bigger?format=auto&quality=90
+
+<img src={imageUrl} alt="Seattle Hari Mandir" />
+```
+
+**Real Usage from `pratishta-story.tsx`:**
+```tsx
+const images = [
+  { 
+    src: getCloudflareImage("bdf8b51a-570b-447d-7caa-9e30b94b4300"), 
+    alt: "Seattle Hari Mandir", 
+    title: "Seattle Hari Mandir" 
+  },
+  { 
+    src: getCloudflareImage("a9c67756-fe7b-4518-9097-5f97219adb00"), 
+    alt: "Ocala Mandir Ground Breaking", 
+    title: "Ocala Mandir Ground Breaking" 
+  },
+]
+```
+
+---
+
+### getCloudflareImageMobileWp
+
+<ParamField path="getCloudflareImageMobileWp" type="function">
+  Returns mobile-optimized wallpaper variant (format=auto, quality=90)
+</ParamField>
+
+**Signature:**
+```typescript
+function getCloudflareImageMobileWp(imageId: string): string
+```
+
+**Parameters:**
+- `imageId` - Cloudflare Images UUID
+
+**Returns:** URL with `mobileWP` variant optimized for mobile wallpapers
+
+**Example:**
+```tsx
+import { getCloudflareImageMobileWp } from "@/lib/cdn-assets"
+
+const wallpapers = [
+  {
+    id: "wallpaper-1",
+    imageId: "5aeb6c7e-f6ea-45b1-da4a-823279172400",
+    title: "Acharya Swamiji Maharaj"
+  }
+]
+
+// Generate mobile wallpaper download URL
+<a href={getCloudflareImageMobileWp(wallpapers[0].imageId)} download>
+  Download Mobile Wallpaper
+</a>
+```
+
+**Real Usage from `media/page.tsx`:**
+```tsx
+<Image
+  src={getCloudflareImageMobileWp(wallpaper.imageId)}
+  alt={wallpaper.title}
+  width={1080}
+  height={1920}
+  className="rounded-lg"
+/>
+```
+
+---
+
+### getCloudflareImageBiggest
+
+<ParamField path="getCloudflareImageBiggest" type="function">
+  Returns highest quality variant for hero images (format=auto, quality=100)
+</ParamField>
+
+**Signature:**
+```typescript
+function getCloudflareImageBiggest(imageId: string): string
+```
+
+**Parameters:**
+- `imageId` - Cloudflare Images UUID
+
+**Returns:** URL with `biggest` variant at maximum quality (100)
+
+<Note>
+  Use this variant sparingly for hero sections and critical above-the-fold images. The higher quality increases file size.
+</Note>
+
+**Example:**
+```tsx
+import { getCloudflareImageBiggest } from "@/lib/cdn-assets"
+
+// Hero section background
+const heroImages = [
+  {
+    src: getCloudflareImageBiggest("6369e804-64ef-42fe-2bd7-ece677d9f200"),
+    alt: "Acharya Swamiji Maharaj Darshan"
+  },
+  {
+    src: getCloudflareImageBiggest("8e64636f-efca-468f-44a0-1004f7f7a600"),
+    alt: "Temple Celebration"
+  }
+]
+```
+
+**Real Usage from `page.tsx`:**
+```tsx
+const backgroundImageUrl = `${getCloudflareImageBiggest(
+  "5aeb6c7e-f6ea-45b1-da4a-823279172400"
+)}&width=2560`
+
+const sihasan_trimmed = `${getCloudflareImageBiggest(
+  "c7853ba8-25d7-4097-b754-53d5ff3adb00"
+)}&width=2560`
+
+<div
+  style={{
+    backgroundImage: `url('${backgroundImageUrl}')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center'
+  }}
+>
+  {/* Hero content */}
+</div>
+```
+
+---
+
+### getR2Image
+
+<ParamField path="getR2Image" type="function">
+  Returns URL for any file stored in Cloudflare R2 bucket
+</ParamField>
+
+**Signature:**
+```typescript
+function getR2Image(filename: string): string
+```
+
+**Parameters:**
+- `filename` - Path to file in R2 bucket (should start with `/`)
+
+**Returns:** Fully qualified URL to R2 asset
+
+**Example:**
+```typescript
+import { getR2Image } from "@/lib/cdn-assets"
+
+const audioFile = getR2Image("/audio/prayer.mp3")
+const customImage = getR2Image("/gallery/event-2025.jpg")
+```
+
+## Variant Comparison
+
+<Tabs>
+  <Tab title="bigger (default)">
+    **Best for:** General content images, galleries, cards
+    
+    - Quality: 90
+    - Format: Auto (WebP/AVIF based on browser support)
+    - Use case: Most images in the application
+    - Function: `getCloudflareImage()`
+  </Tab>
+  
+  <Tab title="mobileWP">
+    **Best for:** Mobile wallpapers and downloads
+    
+    - Quality: 90
+    - Format: Auto
+    - Optimized for: Mobile aspect ratios (9:16, 9:18, etc.)
+    - Function: `getCloudflareImageMobileWp()`
+  </Tab>
+  
+  <Tab title="biggest">
+    **Best for:** Hero images, critical above-the-fold content
+    
+    - Quality: 100
+    - Format: Auto
+    - Use case: Landing page heroes, key promotional images
+    - Function: `getCloudflareImageBiggest()`
+    - Warning: Larger file sizes, use sparingly
+  </Tab>
+</Tabs>
+
+## Performance Tips
+
+1. **Choose the right variant:** Use `bigger` for most content, reserve `biggest` for heroes
+2. **Lazy loading:** Next.js `<Image>` component handles this automatically
+3. **Responsive images:** Append `&width=` or `&height=` parameters for specific dimensions
+4. **Preload critical images:** Use `<link rel="preload">` for above-the-fold images
+
+## TypeScript Types
+
+```typescript
+type ImageVariant = 'bigger' | 'mobileWP' | 'biggest'
+
+interface CDNAssets {
+  mainLogo: string
+  mainLogoNoText: string
+  maningarLogo: string
+  whiteLogo: string
+  linenLogo: string
+  instagramIcon: string
+  youtubeIcon: string
+  tilak: string
+}
+```

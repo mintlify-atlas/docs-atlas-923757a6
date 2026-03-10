@@ -1,0 +1,136 @@
+---
+title: useAudio
+description: A React hook for managing audio playback with controls for play, pause, fade effects, and loading states
+---
+
+## Overview
+
+The `useAudio` hook provides a simple interface for controlling audio playback in React components. It manages audio state, playback controls, and includes a smooth fade-out effect for better user experience.
+
+<Note>
+For global audio management across the application, consider using the `AudioProvider` context instead. See the [AudioContext documentation](/contexts/audio-context) for more details.
+</Note>
+
+## Import
+
+```typescript
+import { useAudio } from '@/hooks/use-audio'
+```
+
+## Usage
+
+```typescript
+import { useAudio } from '@/hooks/use-audio'
+
+export default function AudioPlayer() {
+  const { play, pause, toggle, fadeOut, isPlaying, isLoaded } = useAudio(
+    'https://cdn.njrajatmahotsav.com/audio_files/prathna_audio.mp3'
+  )
+
+  return (
+    <div>
+      {isLoaded ? (
+        <button onClick={toggle}>
+          {isPlaying ? 'Pause' : 'Play'}
+        </button>
+      ) : (
+        <p>Loading audio...</p>
+      )}
+      
+      <button onClick={() => fadeOut(2000)} disabled={!isPlaying}>
+        Fade Out (2s)
+      </button>
+    </div>
+  )
+}
+```
+
+## Parameters
+
+<ParamField path="src" type="string" required>
+  The URL or path to the audio file to be played
+</ParamField>
+
+## Return Value
+
+The hook returns an object with the following properties:
+
+<ResponseField name="play" type="() => void">
+  Function to start or resume audio playback. Sets volume to 1 and begins playing.
+</ResponseField>
+
+<ResponseField name="pause" type="() => void">
+  Function to pause audio playback immediately.
+</ResponseField>
+
+<ResponseField name="fadeOut" type="(duration?: number) => void">
+  Function to gradually fade out the audio over a specified duration before pausing.
+  
+  **Parameters:**
+  - `duration` (optional): Fade duration in milliseconds. Default is `1000`ms (1 second).
+  
+  The fade effect uses 50 steps to smoothly transition the volume from current level to 0.
+</ResponseField>
+
+<ResponseField name="toggle" type="() => void">
+  Function to toggle between play and pause states. Calls `pause()` if playing, otherwise calls `play()`.
+</ResponseField>
+
+<ResponseField name="isPlaying" type="boolean">
+  Boolean indicating whether the audio is currently playing.
+</ResponseField>
+
+<ResponseField name="isLoaded" type="boolean">
+  Boolean indicating whether the audio has loaded and is ready to play. Becomes `true` when the `canplaythrough` event fires.
+</ResponseField>
+
+<ResponseField name="audioRef" type="RefObject<HTMLAudioElement | null>">
+  React ref containing the underlying HTML audio element. Useful for advanced audio manipulation or accessing native audio properties.
+</ResponseField>
+
+## Implementation Details
+
+### Audio Loading
+
+The hook creates a new `Audio` element when the component mounts or when the `src` changes:
+
+```typescript
+audioRef.current = new Audio(src)
+audioRef.current.preload = 'auto'
+audioRef.current.volume = 1
+```
+
+### Fade Out Algorithm
+
+The `fadeOut` function uses a stepped interval approach:
+
+- Divides the fade duration into 50 steps
+- Calculates volume decrement per step
+- Uses `setInterval` to gradually reduce volume
+- Automatically pauses and cleans up when volume reaches 0
+
+```typescript
+const steps = 50
+const stepTime = duration / steps
+const volumeStep = startVolume / steps
+```
+
+### Cleanup
+
+The hook automatically cleans up resources when the component unmounts:
+
+- Clears any active fade intervals
+- Pauses audio playback
+- Removes event listeners
+
+## Use Cases
+
+- **Sound effects**: Play button clicks, notifications, or UI feedback sounds
+- **Background music**: Add ambient audio to specific pages or sections
+- **Audio previews**: Preview audio files before full playback
+- **Voiceovers**: Control narration or guided tour audio
+
+## Related
+
+- [AudioContext](/contexts/audio-context) - Global audio management with user consent
+- [AudioProvider](/contexts/audio-context#audioprovider) - Context provider for app-wide audio control

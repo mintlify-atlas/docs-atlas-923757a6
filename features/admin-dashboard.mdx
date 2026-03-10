@@ -1,0 +1,368 @@
+---
+title: Admin Dashboard
+description: Secure admin portal for viewing registration statistics, managing attendee data, and exporting reports with role-based authentication.
+---
+
+## Overview
+
+The Admin Dashboard provides authorized users with comprehensive insights into event registrations, including real-time statistics, filterable data tables, interactive charts, and CSV export functionality. Access is restricted to users with `@nj.sgadi.us` email domain.
+
+## Authentication
+
+The dashboard uses Supabase Auth with domain-based access control:
+
+```typescript title="lib/admin-auth.ts"
+export function isAdminDomainUser(user: User): boolean {
+  if (!user.email) return false
+  return user.email.endsWith('@nj.sgadi.us')
+}
+```
+
+<Steps>
+  <Step title="Navigate to Admin Portal">
+    Access the dashboard at `/admin/registrations`
+  </Step>
+  
+  <Step title="Sign In with Google">
+    Click "Sign in with Google" using an authorized `@nj.sgadi.us` account
+  </Step>
+  
+  <Step title="View Statistics">
+    See total registrations, peak attendance, and demographic breakdowns
+  </Step>
+  
+  <Step title="Filter & Search">
+    Use search, filters, and sorting to find specific registrations
+  </Step>
+  
+  <Step title="Export Data">
+    Download complete registration data as CSV for external analysis
+  </Step>
+</Steps>
+
+## Page Structure
+
+```typescript title="app/admin/registrations/page.tsx"
+export default async function AdminRegistrationsPage() {
+  let supabase
+  try {
+    supabase = await createClient()
+  } catch (err) {
+    // Handle Supabase configuration errors
+    return <ConfigurationError />
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    if (!isAdminDomainUser(user)) {
+      redirect("/admin/registrations/unauthorized")
+    }
+
+    const { data: statsData, error: statsError } = await supabase.rpc(
+      "get_registrations_stats",
+      {
+        p_start_date: REGISTRATION_DATE_RANGE.start,
+        p_end_date: REGISTRATION_DATE_RANGE.end,
+      }
+    )
+
+    const stats = statsError ? null : (statsData as RegistrationsStats)
+
+    return (
+      <div className="page-bg-extend reg-page-bg min-h-screen">
+        <div className="container mx-auto px-4 page-bottom-spacing max-w-6xl">
+          <StandardPageHeader
+            title="Registrations Admin"
+            description="Insights and registrations data for the Rajat Mahotsav."
+          />
+          {stats ? (
+            <>
+              <AdminDashboardStats stats={stats} userEmail={user.email ?? ""} />
+              <div className="mt-6">
+                <AdminRegistrationsTable />
+              </div>
+            </>
+          ) : (
+            <div className="p-6 rounded-2xl admin-card max-w-2xl mx-auto">
+              <p className="reg-text-primary">
+                Stats unavailable. {statsError?.message ?? "Please try again."}
+              </p>
+              <div className="mt-6">
+                <AdminRegistrationsTable />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return <AdminSignIn />
+}
+```
+
+## Statistics Display
+
+The dashboard shows animated statistics cards using Framer Motion:
+
+```typescript title="app/admin/registrations/AdminDashboardStats.tsx"
+function AnimatedStatCard({
+  icon,
+  label,
+  value,
+  inView,
+  delay = 0,
+}: {
+  icon: ReactNode
+  label: string
+  value: number
+  inView: boolean
+  delay?: number
+}) {
+  const count = useMotionValue(0)
+  const rounded = useTransform(count, (latest) => Math.round(latest))
+  const formatted = useTransform(rounded, (latest) => latest.toLocaleString())
+
+  useEffect(() => {
+    if (inView) {
+      const controls = animate(count, value, {
+        duration: 1.8,
+        delay: delay,
+        ease: "easeOut",
+      })
+      return controls.stop
+    }
+  }, [count, value, delay, inView])
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+      transition={{ duration: 0.4, delay }}
+      className="p-5 rounded-xl admin-card flex items-start gap-4"
+    >
+      <div className="shrink-0 p-2.5 rounded-xl bg-gradient-to-br from-orange-100 to-red-100 text-[rgb(185,28,28)]">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium reg-text-secondary uppercase tracking-wide">
+          {label}
+        </p>
+        <motion.p className="text-2xl font-bold reg-text-primary mt-1 tabular-nums">
+          {formatted}
+        </motion.p>
+      </div>
+    </motion.div>
+  )
+}
+```
+
+### Key Metrics
+
+<CardGroup cols={2}>
+  <Card title="Total Registrations" icon="users">
+    Complete count of all registered attendees
+  </Card>
+  
+  <Card title="Peak Daily Attendance" icon="trending-up">
+    Highest expected attendance on any single day
+  </Card>
+  
+  <Card title="Avg Daily Arrivals" icon="calendar">
+    Average number of arrivals per day
+  </Card>
+  
+  <Card title="Unique Ghaams" icon="map-pin">
+    Number of distinct villages/communities represented
+  </Card>
+</CardGroup>
+
+## Registrations Table
+
+The table features cursor-based pagination, real-time search, and advanced filtering:
+
+```typescript title="app/admin/registrations/AdminRegistrationsTable.tsx"
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const
+const SEARCH_DEBOUNCE_MS = 350
+
+type FilterState = {
+  search: string
+  ghaam: string
+  mandal: string
+  country: string
+  age: number | null
+  ageMin: number | null
+  ageMax: number | null
+  arrivalFrom: string
+  arrivalTo: string
+  departureFrom: string
+  departureTo: string
+}
+
+const buildParams = useCallback(
+  (
+    cursor: number | null,
+    direction: "next" | "prev",
+    pageSizeOverride?: number
+  ) => {
+    const effectivePageSize = pageSizeOverride ?? pageSize
+    const params = new URLSearchParams({
+      page_size: String(effectivePageSize),
+      direction,
+    })
+    if (cursor != null) params.set("cursor", String(cursor))
+    if (filters.search.trim().length >= 2)
+      params.set("search", filters.search.trim())
+    if (filters.ghaam) params.set("ghaam", filters.ghaam)
+    if (filters.mandal) params.set("mandal", filters.mandal)
+    if (filters.country) params.set("country", filters.country)
+    if (filters.age != null) params.set("age", String(filters.age))
+    if (filters.ageMin != null) params.set("age_min", String(filters.ageMin))
+    if (filters.ageMax != null) params.set("age_max", String(filters.ageMax))
+    if (filters.arrivalFrom) params.set("arrival_from", filters.arrivalFrom)
+    if (filters.arrivalTo) params.set("arrival_to", filters.arrivalTo)
+    if (filters.departureFrom)
+      params.set("departure_from", filters.departureFrom)
+    if (filters.departureTo) params.set("departure_to", filters.departureTo)
+    return params
+  },
+  [pageSize, filters]
+)
+```
+
+### Search Functionality
+
+The search input uses debouncing to prevent excessive API calls:
+
+```typescript title="app/admin/registrations/AdminRegistrationsTable.tsx"
+const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+useEffect(() => {
+  if (debounceRef.current) clearTimeout(debounceRef.current)
+  debounceRef.current = setTimeout(() => {
+    setFilters((prev) => ({ ...prev, search: searchInput }))
+    debounceRef.current = null
+  }, SEARCH_DEBOUNCE_MS)
+  return () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+  }
+}, [searchInput])
+```
+
+<Note>
+Search queries require at least 2 characters and are debounced by 350ms to optimize performance.
+</Note>
+
+### Filters Available
+
+<Tabs>
+  <Tab title="Basic Filters">
+    - **Search**: Name, email, or phone number
+    - **Ghaam**: Filter by village/community
+    - **Mandal**: Filter by regional mandal
+    - **Country**: Filter by country of origin
+  </Tab>
+  
+  <Tab title="Advanced Filters">
+    - **Age (exact)**: Specific age value
+    - **Age min/max**: Age range filtering
+    - **Arrival from/to**: Date range for arrivals
+    - **Departure from/to**: Date range for departures
+  </Tab>
+</Tabs>
+
+## Pagination
+
+Cursor-based pagination ensures consistent results:
+
+```typescript title="app/admin/registrations/AdminRegistrationsTable.tsx"
+const handleNext = () => {
+  if (nextCursor == null || !hasMore || loading) return
+  setPageInfo((prev) => ({ startIndex: prev.startIndex + rows.length }))
+  fetchPage(nextCursor, "next")
+}
+
+const handlePrev = () => {
+  const canGoPrev = pageInfo.startIndex > 1 && prevCursor != null
+  if (!canGoPrev || loading) return
+  setPageInfo((prev) => ({ startIndex: Math.max(1, prev.startIndex - pageSize) }))
+  fetchPage(prevCursor, "prev")
+}
+```
+
+## Data Export
+
+CSV export is available through a dedicated API route:
+
+```typescript title="app/api/registrations/export/route.ts"
+// Export endpoint generates CSV with all registration data
+<a
+  href="/api/registrations/export"
+  download
+  className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-medium admin-btn-primary text-sm"
+>
+  <Download className="size-4" aria-hidden />
+  Export CSV
+</a>
+```
+
+## Charts & Visualizations
+
+The dashboard includes lazy-loaded charts for performance:
+
+```typescript title="app/admin/registrations/AdminDashboardStats.tsx"
+const AdminDashboardCharts = lazy(() => import("./AdminDashboardCharts"))
+
+<Suspense fallback={<ChartsSkeleton />}>
+  <AdminDashboardCharts stats={stats} />
+</Suspense>
+```
+
+### Charts Included
+
+- Daily expected attendance graph
+- Arrivals by date distribution
+- Country breakdown pie chart
+- Ghaam distribution visualization
+- Age demographics histogram
+
+## Sign Out
+
+```typescript title="app/admin/registrations/AdminDashboardStats.tsx"
+const handleSignOut = async () => {
+  await supabase.auth.signOut()
+  router.refresh()
+}
+
+<Button
+  onClick={handleSignOut}
+  variant="outline"
+  className="shrink-0 inline-flex items-center gap-2 rounded-full px-5 py-2.5 admin-btn-outline"
+  aria-label="Sign out"
+>
+  <LogOut className="size-4" aria-hidden />
+  Sign out
+</Button>
+```
+
+## Styling
+
+Custom CSS classes for admin theme:
+
+- `admin-card` - Card backgrounds
+- `admin-btn-primary` - Primary action buttons
+- `admin-btn-outline` - Outline style buttons
+- `reg-text-primary` - Primary text color
+- `reg-text-secondary` - Secondary text color
+
+<Warning>
+The admin dashboard is only accessible to users with `@nj.sgadi.us` email addresses. Unauthorized access attempts are redirected to `/admin/registrations/unauthorized`.
+</Warning>
+
+## Related Features
+
+- [Event Registration](/features/event-registration) - User registration flow
+- [API Routes](/api-reference/admin) - Backend API documentation

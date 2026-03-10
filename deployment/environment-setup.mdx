@@ -1,0 +1,252 @@
+---
+title: Environment Setup
+description: Configure environment variables and local development setup for the NJ Rajat Mahotsav platform
+---
+
+## Overview
+
+The NJ Rajat Mahotsav platform requires environment variables for Supabase authentication, database access, and Cloudflare R2 storage. This guide covers complete environment setup for local development and production deployment.
+
+## Prerequisites
+
+Before configuring your environment, ensure you have:
+
+- Node.js 18+ and npm installed
+- A Supabase account and project created
+- Cloudflare account with R2 and Images configured
+- Google OAuth credentials (for admin portal)
+
+## Required Environment Variables
+
+### Supabase Configuration
+
+These variables connect your application to Supabase for authentication and database operations.
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+<Note>
+**Finding Your Supabase Credentials:**
+
+1. Go to your Supabase project dashboard
+2. Navigate to **Settings** → **API**
+3. Copy the **Project URL** and **anon public** key
+</Note>
+
+### Cloudflare R2 Configuration
+
+R2 stores static assets and user uploads. Configure these variables for S3-compatible access:
+
+```bash
+R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=your-r2-access-key
+R2_SECRET_ACCESS_KEY=your-r2-secret-key
+R2_BUCKET_NAME=your-bucket-name
+R2_BUCKET_PREFIX=uploads/
+```
+
+<Steps>
+
+### Step 1: Create R2 Bucket
+
+1. Log in to Cloudflare Dashboard
+2. Navigate to **R2** → **Create bucket**
+3. Name your bucket (e.g., `rajat-mahotsav-assets`)
+
+### Step 2: Generate API Tokens
+
+1. Go to **R2** → **Manage R2 API Tokens**
+2. Click **Create API token**
+3. Select **Read & Write** permissions
+4. Copy the Access Key ID and Secret Access Key
+
+### Step 3: Configure Endpoint
+
+Your R2 endpoint follows this format:
+```
+https://<account-id>.r2.cloudflarestorage.com
+```
+
+Find your account ID in the Cloudflare dashboard URL.
+
+</Steps>
+
+### Cloudflare Images (Optional)
+
+The platform uses Cloudflare Images for optimized image delivery with variants:
+
+```bash
+CLOUDFLARE_IMAGES_URL=https://imagedelivery.net/your-account-hash
+```
+
+<Tip>
+Cloudflare Images provides automatic optimization with variants like `bigger`, `mobileWP`, and `biggest` used throughout the platform.
+</Tip>
+
+## Local Development Setup
+
+<Steps>
+
+### Step 1: Clone Repository
+
+```bash
+git clone https://github.com/vijaykpatel/Rajat-Mahotsav-Website.git
+cd Rajat-Mahotsav-Website
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+### Step 3: Create Environment File
+
+Create `.env.local` in the project root:
+
+```bash
+touch .env.local
+```
+
+### Step 4: Configure Variables
+
+Add all required environment variables to `.env.local`:
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Cloudflare R2
+R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=your-access-key
+R2_SECRET_ACCESS_KEY=your-secret-key
+R2_BUCKET_NAME=your-bucket-name
+R2_BUCKET_PREFIX=uploads/
+```
+
+### Step 5: Start Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+</Steps>
+
+<Warning>
+**Never commit `.env.local` to version control**
+
+The `.env.local` file is in `.gitignore` by default. Never rename it to `.env` or commit sensitive credentials to your repository.
+</Warning>
+
+## Environment Variable Validation
+
+### Testing Supabase Connection
+
+Verify your Supabase credentials work:
+
+```typescript
+// Test in app/api/test/route.ts
+import { createClient } from '@/utils/supabase/server'
+
+export async function GET() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('registrations').select('count')
+  
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json({ success: true, data })
+}
+```
+
+### Testing R2 Connection
+
+Verify R2 credentials by checking bucket access:
+
+```typescript
+import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
+
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+})
+
+const command = new ListObjectsV2Command({
+  Bucket: process.env.R2_BUCKET_NAME,
+  MaxKeys: 1,
+})
+
+const response = await s3Client.send(command)
+console.log('R2 connection successful:', response.$metadata.httpStatusCode === 200)
+```
+
+## Admin Domain Configuration
+
+Admin access is restricted by email domain in `lib/admin-auth.ts`:
+
+```typescript
+const ALLOWED_DOMAIN = "@nj.sgadi.us"
+```
+
+<Warning>
+**Update Admin Domain Before Deployment**
+
+Change the `ALLOWED_DOMAIN` constant in `lib/admin-auth.ts` to match your organization's email domain. This controls who can access the admin portal at `/admin/registrations`.
+</Warning>
+
+## Common Issues
+
+### Supabase Connection Errors
+
+**Problem:** "Invalid API key" or "Project not found"
+
+**Solution:**
+- Verify your `NEXT_PUBLIC_SUPABASE_URL` has no trailing slash
+- Confirm you're using the **anon public** key, not the service role key
+- Check the project is not paused in Supabase dashboard
+
+### R2 Access Denied
+
+**Problem:** "403 Forbidden" when uploading files
+
+**Solution:**
+- Verify API token has **Read & Write** permissions
+- Confirm bucket name matches exactly (case-sensitive)
+- Check endpoint URL format: `https://<account-id>.r2.cloudflarestorage.com`
+
+### Missing Environment Variables
+
+**Problem:** "Cannot read property of undefined" errors
+
+**Solution:**
+- Restart development server after adding new variables
+- Verify variable names match exactly (including `NEXT_PUBLIC_` prefix)
+- Check `.env.local` file is in project root, not a subdirectory
+
+## Security Best Practices
+
+<Tip>
+**Environment Variable Security:**
+
+- Use different credentials for development, staging, and production
+- Rotate R2 credentials regularly (every 90 days)
+- Never expose service role keys in client-side code
+- Use Supabase RLS policies instead of relying on secret keys
+- Store production secrets in your deployment platform's secure vault
+</Tip>
+
+## Next Steps
+
+After configuring your environment:
+
+1. Configure [Vercel Deployment](/deployment/vercel-deployment)
+2. Review the [Security Checklist](/deployment/security-checklist)
+3. Set up Supabase Row Level Security policies
+4. Configure Google OAuth for admin access

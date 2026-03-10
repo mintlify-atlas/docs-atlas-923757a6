@@ -1,0 +1,781 @@
+---
+title: Security Checklist
+description: Security best practices and checklist for production deployment of the NJ Rajat Mahotsav platform
+---
+
+## Overview
+
+This security checklist is based on an actual security audit performed on the NJ Rajat Mahotsav platform. Critical vulnerabilities have been fixed, but several security recommendations remain for production deployment.
+
+## Security Status
+
+The repository has undergone security review:
+
+- **Last Audit:** 2026-01-26
+- **Critical Issues Found:** 2 (Fixed ✅)
+- **High Severity Issues:** 5 (2 Fixed, 3 Recommendations)
+- **Medium Severity Issues:** 4 (2 Fixed, 2 Recommendations)
+
+<Warning>
+**Production Deployment Warning:**
+
+This is a portfolio project. While security improvements have been made, it should **not be deployed to production** without implementing all recommended security measures in this guide.
+</Warning>
+
+## Fixed Security Issues
+
+### ✅ SSRF Vulnerability (CRITICAL)
+
+**Fixed in:** `app/api/download/route.ts`
+
+Implemented protections:
+- URL allowlist validation
+- HTTPS-only enforcement
+- Private IP range blocking
+- File size limits and timeouts
+
+```typescript
+// Allowed domains for file downloads
+const ALLOWED_DOMAINS = [
+  'cdn.njrajatmahotsav.com',
+  'your-bucket.r2.cloudflarestorage.com',
+]
+
+// Validate URL before fetching
+if (!ALLOWED_DOMAINS.some(domain => url.hostname.endsWith(domain))) {
+  return new Response('Invalid URL', { status: 400 })
+}
+```
+
+### ✅ XSS Vulnerability (HIGH)
+
+**Fixed in:** `components/organisms/standard-page-header.tsx`
+
+- Removed `dangerouslySetInnerHTML` usage
+- Sanitized all user input rendering
+- Escaped special characters in dynamic content
+
+### ✅ Information Disclosure (MEDIUM)
+
+**Fixed in:** Multiple files
+
+- Removed sensitive `console.log` statements
+- Cleaned up PII logging in registration forms
+- Removed debug outputs in production builds
+
+### ✅ Security Headers (MEDIUM)
+
+**Added in:** `next.config.mjs`
+
+All responses include security headers:
+
+```javascript
+headers: [
+  {
+    key: 'X-Frame-Options',
+    value: 'DENY', // Prevents clickjacking
+  },
+  {
+    key: 'X-Content-Type-Options',
+    value: 'nosniff', // Prevents MIME sniffing
+  },
+  {
+    key: 'X-XSS-Protection',
+    value: '1; mode=block', // Enables XSS filter
+  },
+  {
+    key: 'Referrer-Policy',
+    value: 'strict-origin-when-cross-origin',
+  },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=()',
+  },
+]
+```
+
+## HIGH PRIORITY (Before Production)
+
+### 1. Authentication & Authorization
+
+**Status:** ⚠️ Not Implemented
+
+**Issue:** API routes lack authentication:
+- `/api/generate-upload-urls`
+- `/api/generate-cs-personal-submission-upload-urls`
+- `/api/download`
+
+**Recommendation:**
+
+Implement authentication middleware:
+
+```typescript
+// middleware.ts
+import { createServerClient } from '@/utils/supabase/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  const supabase = await createServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  // Protect API routes
+  if (request.nextUrl.pathname.startsWith('/api/generate-upload')) {
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+  }
+  
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: ['/api/generate-upload-urls', '/api/generate-cs-personal-submission-upload-urls'],
+}
+```
+
+<Warning>
+Without authentication, anyone can generate upload URLs and potentially exhaust your R2 storage quota or upload malicious content.
+</Warning>
+
+### 2. Supabase Row Level Security (RLS)
+
+**Status:** ⚠️ Must Verify in Supabase Dashboard
+
+**Tables Requiring RLS:**
+- `registrations`
+- `spiritual_seva_submission`
+- `community_seva_records`
+- `personal_seva_submission`
+
+<Steps>
+
+### Step 1: Enable RLS on All Tables
+
+In Supabase SQL Editor:
+
+```sql
+-- Enable RLS on registrations table
+ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
+
+-- Enable RLS on seva tables
+ALTER TABLE spiritual_seva_submission ENABLE ROW LEVEL SECURITY;
+ALTER TABLE community_seva_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE personal_seva_submission ENABLE ROW LEVEL SECURITY;
+```
+
+### Step 2: Create Admin Read Policy
+
+Restrict admin dashboard access to authorized domains:
+
+```sql
+-- Admin read policy for registrations
+CREATE POLICY "Admin domain read access"
+ON registrations
+FOR SELECT
+USING (
+  auth.email() LIKE '%@nj.sgadi.us'
+);
+
+-- Admin read policy for seva submissions
+CREATE POLICY "Admin domain read seva"
+ON spiritual_seva_submission
+FOR SELECT
+USING (
+  auth.email() LIKE '%@nj.sgadi.us'
+);
+```
+
+### Step 3: Create Public Insert Policy
+
+Allow anonymous users to submit registrations:
+
+```sql
+-- Public insert for registrations
+CREATE POLICY "Public registration insert"
+ON registrations
+FOR INSERT
+WITH CHECK (true);
+
+-- Public insert for seva submissions
+CREATE POLICY "Public seva insert"
+ON spiritual_seva_submission
+FOR INSERT
+WITH CHECK (true);
+```
+
+### Step 4: Test Policies
+
+Verify policies work as expected:
+
+```typescript
+// Test with anon client
+const { data, error } = await supabase
+  .from('registrations')
+  .select('*')
+
+// Should return error: "row-level security policy violation"
+console.log(error)
+```
+
+</Steps>
+
+<Tip>
+**Update Admin Domain:**
+
+Change `@nj.sgadi.us` to your organization's domain in:
+- RLS policies (SQL above)
+- `lib/admin-auth.ts` (application code)
+</Tip>
+
+### 3. Rate Limiting
+
+**Status:** ⚠️ Not Implemented
+
+**Recommendation:**
+
+Implement rate limiting to prevent abuse:
+
+<Accordion title="Option 1: Upstash Redis Rate Limiting">
+
+Install dependencies:
+
+```bash
+npm install @upstash/ratelimit @upstash/redis
+```
+
+Create rate limiter:
+
+```typescript
+// lib/rate-limit.ts
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
+
+export const ratelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '10 s'),
+  analytics: true,
+})
+```
+
+Apply to API routes:
+
+```typescript
+// app/api/registration/route.ts
+import { ratelimit } from '@/lib/rate-limit'
+
+export async function POST(request: Request) {
+  const ip = request.headers.get('x-forwarded-for') ?? 'anonymous'
+  const { success } = await ratelimit.limit(ip)
+  
+  if (!success) {
+    return Response.json(
+      { error: 'Too many requests' },
+      { status: 429 }
+    )
+  }
+  
+  // Handle registration...
+}
+```
+
+</Accordion>
+
+<Accordion title="Option 2: Vercel Edge Config Rate Limiting">
+
+Use Vercel's built-in rate limiting:
+
+```typescript
+// middleware.ts
+import { next } from '@vercel/edge'
+
+export const config = {
+  matcher: '/api/:path*',
+}
+
+export default async function middleware(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')
+  
+  // Implement simple in-memory rate limiting
+  // Note: This resets on each deployment
+  
+  return next()
+}
+```
+
+</Accordion>
+
+**Recommended Limits:**
+- Registration API: 5 requests per 10 minutes per IP
+- Upload URLs: 10 requests per 10 seconds per session
+- Admin API: 100 requests per minute per user
+
+### 4. File Upload Security
+
+**Status:** ⚠️ Partially Implemented
+
+**Current Issues:**
+- Client-controlled content-type
+- No server-side file validation
+- No malware scanning
+
+**Recommendations:**
+
+<Steps>
+
+### Step 1: Validate File Magic Bytes
+
+Check actual file type server-side:
+
+```typescript
+// lib/file-validation.ts
+export async function validateFileType(
+  buffer: ArrayBuffer,
+  expectedType: string
+): Promise<boolean> {
+  const arr = new Uint8Array(buffer).subarray(0, 4)
+  const header = Array.from(arr)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+  
+  const signatures: Record<string, string[]> = {
+    'image/jpeg': ['ffd8ffe0', 'ffd8ffe1', 'ffd8ffe2'],
+    'image/png': ['89504e47'],
+    'application/pdf': ['25504446'],
+  }
+  
+  return signatures[expectedType]?.includes(header) ?? false
+}
+```
+
+### Step 2: Implement File Size Limits
+
+```typescript
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
+if (file.size > MAX_FILE_SIZE) {
+  throw new Error('File too large')
+}
+```
+
+### Step 3: Randomize Filenames
+
+Prevent directory traversal:
+
+```typescript
+import { randomBytes } from 'crypto'
+
+const safeFilename = `${randomBytes(16).toString('hex')}.${extension}`
+```
+
+### Step 4: Set Strict CORS on R2
+
+Configure R2 bucket CORS:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://njrajatmahotsav.com"],
+    "AllowedMethods": ["PUT", "POST"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+</Steps>
+
+### 5. CSRF Protection
+
+**Status:** ⚠️ Not Implemented
+
+**Recommendation:**
+
+Implement CSRF tokens for all forms:
+
+```typescript
+// lib/csrf.ts
+import { randomBytes } from 'crypto'
+
+export function generateCSRFToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
+export function validateCSRFToken(
+  token: string,
+  sessionToken: string
+): boolean {
+  return token === sessionToken
+}
+```
+
+Add to forms:
+
+```tsx
+// components/organisms/registration-form.tsx
+import { generateCSRFToken } from '@/lib/csrf'
+
+const csrfToken = generateCSRFToken()
+
+<input type="hidden" name="csrf_token" value={csrfToken} />
+```
+
+Validate in API routes:
+
+```typescript
+const formData = await request.formData()
+const csrfToken = formData.get('csrf_token')
+
+if (!validateCSRFToken(csrfToken, session.csrf)) {
+  return Response.json({ error: 'Invalid token' }, { status: 403 })
+}
+```
+
+## MEDIUM PRIORITY
+
+### 6. Input Validation
+
+**Status:** ⚠️ Client-side Only
+
+**Issue:** Zod schemas used only on client-side
+
+**Recommendation:**
+
+Duplicate validation in API routes:
+
+```typescript
+// app/api/registration/route.ts
+import { registrationSchema } from '@/lib/validation-schemas'
+
+export async function POST(request: Request) {
+  const body = await request.json()
+  
+  // Validate with Zod
+  const result = registrationSchema.safeParse(body)
+  
+  if (!result.success) {
+    return Response.json(
+      { error: 'Validation failed', details: result.error },
+      { status: 400 }
+    )
+  }
+  
+  // Proceed with validated data
+  const validData = result.data
+}
+```
+
+<Warning>
+**Never trust client-side validation**
+
+Always validate and sanitize inputs server-side. Client validation can be bypassed with browser dev tools.
+</Warning>
+
+### 7. Content Security Policy (CSP)
+
+**Status:** ⚠️ Not Implemented
+
+**Recommendation:**
+
+Add CSP header to `next.config.mjs`:
+
+```javascript
+{
+  key: 'Content-Security-Policy',
+  value: [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co https://cdn.njrajatmahotsav.com",
+    "frame-src 'self'",
+    "media-src 'self' https://cdn.njrajatmahotsav.com",
+  ].join('; ')
+}
+```
+
+<Note>
+CSP requires careful configuration due to external resources (Cloudflare CDN, Supabase, analytics). Test thoroughly in staging before production.
+</Note>
+
+### 8. Environment Variables
+
+**Status:** ✅ Properly Configured
+
+**Good practices already in place:**
+- `.env` files in `.gitignore`
+- `.env.local` for local secrets (gitignored)
+- No hardcoded secrets found
+
+**Additional Recommendations:**
+
+<Tip>
+**Credential Rotation Schedule:**
+
+- **R2 Credentials:** Rotate every 90 days
+- **Supabase Anon Key:** Rotate if exposed
+- **Service Role Keys:** Never expose, rotate annually
+
+Use different credentials for:
+- Development
+- Staging
+- Production
+</Tip>
+
+## LOW PRIORITY
+
+### 9. Dependency Security
+
+**Status:** ⚠️ Unknown
+
+**Recommendation:**
+
+Regularly audit dependencies:
+
+```bash
+# Check for vulnerabilities
+npm audit
+
+# Update dependencies
+npm update
+
+# Fix vulnerabilities automatically
+npm audit fix
+
+# For breaking changes
+npm audit fix --force
+```
+
+**Automated Security:**
+
+Enable GitHub Dependabot:
+
+1. Go to **Settings** → **Security & analysis**
+2. Enable **Dependabot alerts**
+3. Enable **Dependabot security updates**
+
+### 10. Build Configuration
+
+**Status:** ⚠️ Warnings Ignored
+
+**Current Settings:**
+
+```javascript
+eslint: { ignoreDuringBuilds: true },
+typescript: { ignoreBuildErrors: true },
+```
+
+**Recommendation:**
+
+Fix all errors before production:
+
+```bash
+# Run TypeScript check
+npx tsc --noEmit
+
+# Run ESLint
+npm run lint
+
+# Fix auto-fixable issues
+npx eslint . --fix
+```
+
+Then enable checks:
+
+```javascript
+eslint: { ignoreDuringBuilds: false },
+typescript: { ignoreBuildErrors: false },
+```
+
+## Data Privacy & Compliance
+
+**Status:** ⚠️ Needs Attention
+
+**PII Collected:**
+- Names, email addresses, phone numbers
+- Location data (country, mandal)
+- Religious activity information
+
+### GDPR Compliance Steps
+
+<Steps>
+
+### Step 1: Add Privacy Policy
+
+Create `app/privacy/page.tsx` with:
+- What data is collected
+- How data is used
+- Data retention period
+- User rights (access, deletion)
+- Contact information
+
+### Step 2: Implement Data Deletion
+
+Add API endpoint for users to request deletion:
+
+```typescript
+// app/api/delete-account/route.ts
+export async function POST(request: Request) {
+  const { email } = await request.json()
+  
+  // Verify user identity
+  // Delete from all tables
+  await supabase
+    .from('registrations')
+    .delete()
+    .eq('email', email)
+  
+  return Response.json({ success: true })
+}
+```
+
+### Step 3: Add Cookie Consent
+
+If using analytics cookies:
+
+```bash
+npm install react-cookie-consent
+```
+
+### Step 4: Encrypt Sensitive Data
+
+Consider encrypting PII at rest in Supabase.
+
+</Steps>
+
+## Security Testing
+
+Before production deployment:
+
+<Accordion title="1. Penetration Testing">
+
+**Manual Tests:**
+- SQL injection attempts on all forms
+- XSS payloads in text inputs
+- CSRF token bypass attempts
+- File upload validation bypass
+- Authentication bypass attempts
+- Rate limiting verification
+
+**Automated Tools:**
+```bash
+# OWASP ZAP
+docker run -t owasp/zap2docker-stable zap-baseline.py -t https://njrajatmahotsav.com
+
+# Nikto web scanner
+nikto -h https://njrajatmahotsav.com
+```
+
+</Accordion>
+
+<Accordion title="2. Dependency Audit">
+
+```bash
+npm audit
+npm audit --production
+```
+
+Fix all high and critical vulnerabilities.
+
+</Accordion>
+
+<Accordion title="3. Static Analysis">
+
+```bash
+# ESLint with security plugins
+npm install --save-dev eslint-plugin-security
+
+# Run security-focused linting
+npx eslint . --ext .ts,.tsx --plugin security
+```
+
+</Accordion>
+
+<Accordion title="4. Manual Code Review">
+
+**Focus Areas:**
+- All API routes in `app/api/`
+- Authentication logic in `lib/admin-auth.ts`
+- File upload handlers
+- Environment variable usage
+- Error handling and logging
+
+</Accordion>
+
+## Production Checklist
+
+Complete before going live:
+
+### Critical Security
+- [ ] SSRF vulnerability fixed (✅ Done)
+- [ ] XSS vulnerability fixed (✅ Done)
+- [ ] Security headers configured (✅ Done)
+- [ ] Supabase RLS policies enabled
+- [ ] Admin domain updated in code
+- [ ] Authentication added to API routes
+- [ ] Rate limiting implemented
+- [ ] CSRF protection added
+- [ ] File upload validation implemented
+
+### Code Quality
+- [ ] All TypeScript errors fixed
+- [ ] ESLint errors resolved
+- [ ] Build succeeds with checks enabled
+- [ ] Dependencies audited and updated
+
+### Compliance
+- [ ] Privacy policy added
+- [ ] Cookie consent implemented (if needed)
+- [ ] Data deletion capability added
+- [ ] GDPR compliance reviewed
+
+### Testing
+- [ ] Penetration testing completed
+- [ ] Security scan passed
+- [ ] Load testing performed
+- [ ] Backup and recovery tested
+
+## Reporting Security Issues
+
+If you discover a security vulnerability:
+
+<Warning>
+**DO NOT create a public GitHub issue**
+
+Security issues should be reported privately to prevent exploitation.
+</Warning>
+
+**Contact:**
+- Email: [security contact email]
+- Include:
+  - Vulnerability description
+  - Steps to reproduce
+  - Potential impact
+  - Suggested fix (if any)
+
+## Additional Resources
+
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [Next.js Security Best Practices](https://nextjs.org/docs/advanced-features/security-headers)
+- [Supabase RLS Documentation](https://supabase.com/docs/guides/auth/row-level-security)
+- [Cloudflare R2 Security](https://developers.cloudflare.com/r2/security/)
+- [Vercel Security Headers](https://vercel.com/docs/concepts/edge-network/headers#security-headers)
+
+## Next Steps
+
+After implementing security measures:
+
+1. Schedule regular security audits (quarterly)
+2. Monitor Vercel deployment logs for suspicious activity
+3. Set up alerting for failed authentication attempts
+4. Review Supabase audit logs regularly
+5. Keep dependencies updated monthly
