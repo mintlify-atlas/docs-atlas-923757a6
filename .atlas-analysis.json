@@ -1,0 +1,132 @@
+{
+  "projectType": "saas",
+  "projectName": "NJ Rajat Mahotsav",
+  "projectDescription": "A full-featured event platform for the Shree Swaminarayan Temple Secaucus 25th Anniversary celebration with registration, admin workflows, and community engagement features.",
+  "theme": "almond",
+  "primaryColor": "#df212b",
+  "lightColor": "#5285b2",
+  "darkColor": "#daddde",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/event-registration",
+              "features/admin-dashboard",
+              "features/event-schedule",
+              "features/media-galleries",
+              "features/seva-submissions",
+              "features/background-audio"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/component-structure",
+              "architecture/state-management",
+              "architecture/styling-system"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/supabase",
+              "integrations/cloudflare-cdn",
+              "integrations/authentication"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/environment-setup",
+              "deployment/vercel-deployment",
+              "deployment/security-checklist"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Components",
+        "groups": [
+          {
+            "group": "Component Library",
+            "pages": [
+              "components/overview",
+              "components/atoms",
+              "components/molecules",
+              "components/organisms",
+              "components/ui-components"
+            ]
+          },
+          {
+            "group": "Custom Hooks",
+            "pages": [
+              "hooks/use-audio",
+              "hooks/use-loading",
+              "hooks/use-device-type",
+              "hooks/use-intersection-observer"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "API Routes",
+            "pages": [
+              "api/overview",
+              "api/registration",
+              "api/admin",
+              "api/file-upload"
+            ]
+          },
+          {
+            "group": "Data & Utilities",
+            "pages": [
+              "api/cdn-assets",
+              "api/timeline-data",
+              "api/supabase-client"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-step event registration with form validation",
+    "Protected admin dashboard with Google OAuth authentication",
+    "Interactive event schedule and timeline",
+    "Media galleries with Cloudflare CDN integration",
+    "Seva (service) submission forms for community engagement",
+    "Background audio system with fade controls",
+    "Responsive design with mobile-first approach",
+    "Atomic design component architecture",
+    "Supabase backend with Row Level Security",
+    "Cloudflare R2 and Images for optimized asset delivery"
+  ],
+  "publicApiSurface": [
+    "/api/registrations - Event registration submission",
+    "/api/admin/registrations - Admin data access with filtering and export",
+    "/api/download - Secure file download endpoint",
+    "/api/generate-upload-urls - Generate presigned R2 upload URLs",
+    "getCloudflareImage() - CDN image helper",
+    "getCloudflareImageMobileWp() - Mobile optimized images",
+    "createClient() - Supabase client factory",
+    "useAudio() - Audio playback control hook",
+    "useLoading() - Global loading state hook",
+    "useDeviceType() - Device detection hook"
+  ]
+}
